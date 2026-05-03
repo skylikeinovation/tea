@@ -1,0 +1,32 @@
+// Teste do Garbage Collector
+// Uso: gc.init(), gc.collect(), gc.stop()
+
+fun main():
+    print("🗑️  Tea - Teste de Garbage Collector")
+    print("")
+    
+    // Inicializa o GC
+    print("[*] Inicializando GC...")
+    gc.init()
+    
+    // Cria muitos objetos
+    print("[*] Criando 1000 arrays...")
+    val i = 0
+    while i < 1000:
+        val temp = [1, 2, 3, 4, 5]
+        val i = i + 1
+    endwhile
+    
+    print("[+] Arrays criados!")
+    print("")
+    
+    // Força coleta de lixo
+    print("[*] Forçando coleta de lixo...")
+    gc.collect()
+    print("[+] Memória liberada!")
+    print("")
+    
+    // Para o GC
+    print("[*] Parando GC...")
+    gc.stop()
+    print("[+] GC parado!")

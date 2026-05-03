@@ -37,9 +37,6 @@ local OP = {
 
     -- Dicionários
     CREATE_DICT = 40, DICT_GET = 41, DICT_SET = 42,
-    
-    -- Garbage Collector
-    GC_COLLECT = 90, GC_INIT = 91, GC_STOP = 92,
 }
 
 -- ============================================
@@ -102,30 +99,6 @@ end
 local function remove_comments(source)
     source = source:gsub("//[^\n]*", "")
     source = source:gsub("\\.-\\", "")
-    return source
-end
-
--- Processa includes (@include)
-local function process_includes(source, base_path)
-    base_path = base_path or "."
-    
-    -- Procura por @include("caminho")
-    source = source:gsub('@include%("([^"]+)"%)', function(path)
-        -- Resolve caminho relativo
-        local full_path = base_path .. "/" .. path
-        
-        -- Lê o arquivo
-        local f = io.open(full_path, "r")
-        if not f then
-            error("!! Erro: Arquivo de include não encontrado: " .. full_path)
-        end
-        local content = f:read("*all")
-        f:close()
-        
-        -- Retorna o conteúdo (será injetado no código)
-        return "-- [INCLUDE: " .. path .. "]\n" .. content .. "\n-- [END INCLUDE]"
-    end)
-    
     return source
 end
 
@@ -358,10 +331,6 @@ end
 -- ============================================
 
 local function parse(source)
-    -- Processa includes primeiro
-    local base_path = input_file:match("(.*/)")  or "."
-    source = process_includes(source, base_path)
-    
     source = remove_comments(source)
 
     local lines = {}
@@ -440,16 +409,6 @@ local function parse(source)
             local var_name, rest = line:match("^val%s+([%w%-_]+)%s*=%s*(.+)$")
             compile_expression(rest)
             emit(OP.STORE, get_var_index(var_name))
-
-        -- Garbage Collector
-        elseif line:match("^gc%.init%(%)") then
-            emit(OP.GC_INIT)
-            
-        elseif line:match("^gc%.collect%(%)") then
-            emit(OP.GC_COLLECT)
-            
-        elseif line:match("^gc%.stop%(%)") then
-            emit(OP.GC_STOP)
 
         -- Operações matemáticas antigas (compatibilidade)
         elseif line:match("^add%s+") then

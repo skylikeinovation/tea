@@ -63,6 +63,11 @@ local OP = {
     CALL = 80,              -- Chama função
     RETURN = 81,            -- Retorna de função
     PUSH_PARAM = 82,        -- Empilha parâmetro
+    
+    -- Garbage Collector (NOVOS)
+    GC_COLLECT = 90,        -- Força coleta de lixo
+    GC_INIT = 91,           -- Inicializa GC
+    GC_STOP = 92,           -- Para GC
 }
 
 -- ============================================
@@ -512,6 +517,24 @@ local function execute(bytecode)
             ip = call_stack[call_sp]
             call_stack[call_sp] = nil
             call_sp = call_sp - 1
+            
+        -- ========================================
+        -- GARBAGE COLLECTOR (NOVOS)
+        -- ========================================
+        
+        elseif opcode == OP.GC_INIT then
+            -- Inicializa GC (modo incremental)
+            collectgarbage("restart")
+            collectgarbage("setpause", 100)
+            collectgarbage("setstepmul", 200)
+            
+        elseif opcode == OP.GC_COLLECT then
+            -- Força coleta completa
+            collectgarbage("collect")
+            
+        elseif opcode == OP.GC_STOP then
+            -- Para o GC
+            collectgarbage("stop")
             
         elseif opcode == OP.HALT then
             break
