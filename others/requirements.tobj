@@ -1,0 +1,17 @@
+#tea-for-objects
+
+dependencies: [
+    "luastatic (opcional - para binários standalone)",
+    "lua5.4 ou lua5.3 ou lua5.2 ou lua5.1 (qualquer versão)",
+    "bash ou fish ou zsh (qualquer shell)",
+]
+
+optional: [
+    "luarocks (para instalar luastatic)",
+]
+
+notes: [
+    "Tea funciona sem luastatic usando shebang",
+    "Apenas uma versão do Lua é necessária",
+    "O instalador detecta automaticamente o shell",
+]

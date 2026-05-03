@@ -1,0 +1,401 @@
+-- ============================================
+-- tea.lua - O Compilador da Linguagem Tea
+-- ============================================
+-- Este arquivo transforma código Tea (.tea) em bytecode (.teac)
+-- O bytecode é uma representação binária que a VM consegue executar
+
+-- Pega o nome do arquivo de entrada (ou usa "main.tea" como padrão)
+local input_file = arg[1] or "main.tea"
+-- O arquivo de saída é o mesmo nome + "c" (ex: main.tea -> main.teac)
+local output_file = input_file .. "c"
+
+-- ============================================
+-- TABELA DE OPCODES
+-- ============================================
+-- Cada operação da linguagem Tea tem um número (opcode)
+-- A VM usa esses números para saber o que executar
+local OP = {
+    PUSH = 1,      -- Empilha um número na stack
+    ADD = 2,       -- Soma os dois valores do topo da stack
+    SUB = 3,       -- Subtrai (a - b)
+    PRINT = 4,     -- Imprime o valor do topo da stack
+    HALT = 5,      -- Para a execução do programa
+    MULT = 6,      -- Multiplica os dois valores do topo
+    DIV = 7,       -- Divide (a / b)
+    STORE = 8,     -- Armazena valor em uma variável
+    LOAD = 9,      -- Carrega valor de uma variável
+    INPUT = 10,    -- Lê input do usuário
+    PUSH_STR = 14, -- Empilha uma string na stack
+    -- Operadores de comparação
+    EQ = 15,       -- Igual (==)
+    NE = 16,       -- Diferente (n=)
+    LT = 17,       -- Menor que (<)
+    GT = 18,       -- Maior que (>)
+    LE = 19,       -- Menor ou igual (<=)
+    GE = 20,       -- Maior ou igual (>=)
+    -- Controle de fluxo
+    JUMP = 21,     -- Pula para endereço
+    JUMP_IF_FALSE = 22  -- Pula se o topo da stack for falso (0)
+}
+
+-- ============================================
+-- ESTADO DO COMPILADOR
+-- ============================================
+local variables = {}      -- Mapa: nome_da_variavel -> índice numérico
+local var_count = 0       -- Contador de variáveis criadas
+local bytecode = {}       -- Array com o bytecode gerado
+local in_function = false -- Flag: estamos dentro de uma função?
+local label_count = 0     -- Contador para gerar labels únicos
+local labels = {}         -- Mapa de labels para endereços
+local jumps_to_patch = {} -- Lista de jumps que precisam ser resolvidos
+
+-- ============================================
+-- FUNÇÕES AUXILIARES
+-- ============================================
+
+-- Compila uma condição (ex: "idade < 18", "x == 5")
+function parse_condition(condition)
+    -- Detecta o operador
+    local var1, op, var2
+    
+    if condition:match("==") then
+        var1, var2 = condition:match("([%w%-_]+)%s*==%s*([%w%-_]+)")
+        op = OP.EQ
+    elseif condition:match("n=") then
+        var1, var2 = condition:match("([%w%-_]+)%s*n=%s*([%w%-_]+)")
+        op = OP.NE
+    elseif condition:match("<=") then
+        var1, var2 = condition:match("([%w%-_]+)%s*<=%s*([%w%-_]+)")
+        op = OP.LE
+    elseif condition:match(">=") then
+        var1, var2 = condition:match("([%w%-_]+)%s*>=%s*([%w%-_]+)")
+        op = OP.GE
+    elseif condition:match("<") then
+        var1, var2 = condition:match("([%w%-_]+)%s*<%s*([%w%-_]+)")
+        op = OP.LT
+    elseif condition:match(">") then
+        var1, var2 = condition:match("([%w%-_]+)%s*>%s*([%w%-_]+)")
+        op = OP.GT
+    else
+        error("Operador de comparação inválido: " .. condition)
+    end
+    
+    -- Carrega os operandos
+    local num1 = tonumber(var1)
+    if num1 then
+        emit(OP.PUSH, num1)
+    else
+        emit(OP.LOAD, get_var_index(var1))
+    end
+    
+    local num2 = tonumber(var2)
+    if num2 then
+        emit(OP.PUSH, num2)
+    else
+        emit(OP.LOAD, get_var_index(var2))
+    end
+    
+    -- Emite o operador de comparação
+    emit(op)
+end
+
+-- Adiciona uma instrução ao bytecode
+-- Exemplo: emit(OP.PUSH, 5) -> adiciona [PUSH, 5] ao bytecode
+local function emit(opcode, value)
+    table.insert(bytecode, opcode)
+    if value ~= nil then
+        table.insert(bytecode, value)
+    end
+end
+
+-- Obtém ou cria um índice para uma variável
+-- Cada variável tem um número único (0, 1, 2, ...)
+-- Exemplo: "numero-1" -> 0, "numero-2" -> 1
+local function get_var_index(name)
+    if not variables[name] then
+        variables[name] = var_count
+        var_count = var_count + 1
+    end
+    return variables[name]
+end
+
+-- Cria um novo label único
+local function new_label()
+    local label = "L" .. label_count
+    label_count = label_count + 1
+    return label
+end
+
+-- Marca a posição atual com um label
+local function mark_label(label)
+    labels[label] = #bytecode + 1
+end
+
+-- Emite um jump que será resolvido depois
+local function emit_jump(opcode, label)
+    table.insert(jumps_to_patch, {
+        position = #bytecode + 2,  -- Posição do endereço
+        label = label
+    })
+    emit(opcode, 0)  -- 0 é placeholder, será substituído
+end
+
+-- Resolve todos os jumps pendentes
+local function patch_jumps()
+    for _, jump in ipairs(jumps_to_patch) do
+        local addr = labels[jump.label]
+        if not addr then
+            error("Label não encontrado: " .. jump.label)
+        end
+        bytecode[jump.position] = addr
+    end
+end
+
+-- ============================================
+-- PARSER - Transforma código Tea em bytecode
+-- ============================================
+-- Processa o código linha por linha e gera instruções
+local function parse(source)
+    -- Remove comentários do código
+    -- // comentário de linha
+    source = source:gsub("//[^\n]*", "")
+    -- \\ comentário de bloco \\
+    source = source:gsub("\\.-\\", "")
+    
+    -- Converte o código em array de linhas para processar com índice
+    local lines = {}
+    for line in source:gmatch("[^\n]+") do
+        table.insert(lines, line)
+    end
+    
+    -- Pilha para controlar blocos if/elif/else
+    local if_stack = {}
+    
+    -- Processa cada linha do código
+    local i = 1
+    while i <= #lines do
+        local line = lines[i]
+        -- Remove espaços no início e fim da linha (trim)
+        line = line:match("^%s*(.-)%s*$")
+        
+        if line == "" then
+            -- Linha vazia, ignora
+            
+        elseif line:match("^fun%s+") then
+            -- Declaração de função: fun main():
+            in_function = true
+            
+        elseif line:match("^print%(") then
+            -- Comando print: print("texto") ou print(variavel)
+            local content = line:match("print%((.+)%)")
+            
+            if content:match('^".*"$') then
+                -- É uma string literal: print("Olá")
+                local str = content:match('^"(.*)"$')
+                -- Empilha o tamanho da string
+                emit(OP.PUSH_STR, #str)
+                -- Empilha cada caractere da string como um byte
+                for i = 1, #str do
+                    emit(string.byte(str, i))
+                end
+            else
+                -- É uma variável: print(nome)
+                local var_idx = get_var_index(content)
+                emit(OP.LOAD, var_idx)  -- Carrega o valor da variável
+            end
+            emit(OP.PRINT)  -- Imprime o que está no topo da stack
+            
+        elseif line:match("^val%s+") then
+            -- Declaração de variável: val nome = valor
+            local var_name, rest = line:match("^val%s+([%w%-_]+)%s*=%s*(.+)$")
+            
+            if rest:match("^input%(") then
+                -- Caso 1: val x = input("prompt")
+                local prompt = rest:match('input%("(.-)"%)') or ""
+                -- Empilha o prompt
+                emit(OP.PUSH_STR, #prompt)
+                for i = 1, #prompt do
+                    emit(string.byte(prompt, i))
+                end
+                emit(OP.INPUT)  -- Lê input do usuário
+                
+            elseif rest:match('^".*"$') then
+                -- Caso 2: val x = "string"
+                local str = rest:match('^"(.*)"$')
+                emit(OP.PUSH_STR, #str)
+                for i = 1, #str do
+                    emit(string.byte(str, i))
+                end
+                
+            else
+                -- Caso 3: val x = numero
+                local num = tonumber(rest)
+                if num then
+                    emit(OP.PUSH, num)  -- Empilha o número
+                else
+                    error("Valor inválido: " .. rest)
+                end
+            end
+            
+            -- Armazena o valor (que está no topo da stack) na variável
+            local var_idx = get_var_index(var_name)
+            emit(OP.STORE, var_idx)
+            
+        elseif line:match("^add%s+") then
+            -- Operação de soma: add var1, var2
+            local var1, var2 = line:match("^add%s+([%w%-_]+)%s*,%s*([%w%-_]+)")
+            emit(OP.LOAD, get_var_index(var1))  -- Carrega var1
+            emit(OP.LOAD, get_var_index(var2))  -- Carrega var2
+            emit(OP.ADD)                         -- Soma (resultado fica na stack)
+            
+        elseif line:match("^sub%s+") then
+            -- Operação de subtração: sub var1, var2
+            local var1, var2 = line:match("^sub%s+([%w%-_]+)%s*,%s*([%w%-_]+)")
+            emit(OP.LOAD, get_var_index(var1))  -- Carrega var1
+            emit(OP.LOAD, get_var_index(var2))  -- Carrega var2
+            emit(OP.SUB)                         -- Subtrai (var1 - var2)
+            
+        elseif line:match("^mult%s+") then
+            -- Operação de multiplicação: mult var1, var2
+            local var1, var2 = line:match("^mult%s+([%w%-_]+)%s*,%s*([%w%-_]+)")
+            emit(OP.LOAD, get_var_index(var1))  -- Carrega var1
+            emit(OP.LOAD, get_var_index(var2))  -- Carrega var2
+            emit(OP.MULT)                        -- Multiplica
+            
+        elseif line:match("^div%s+") then
+            -- Operação de divisão: div var1, var2
+            local var1, var2 = line:match("^div%s+([%w%-_]+)%s*,%s*([%w%-_]+)")
+            emit(OP.LOAD, get_var_index(var1))  -- Carrega var1
+            emit(OP.LOAD, get_var_index(var2))  -- Carrega var2
+            emit(OP.DIV)                         -- Divide (var1 / var2)
+            
+        -- ========================================
+        -- CONDICIONAIS: if, elif, else, endif
+        -- ========================================
+        elseif line:match("^if%s+") then
+            -- if condição:
+            local condition = line:match("^if%s+(.+):")
+            
+            -- Compila a condição
+            parse_condition(condition)
+            
+            -- Cria labels para controle de fluxo
+            local else_label = new_label()
+            local end_label = new_label()
+            
+            -- Se a condição for falsa, pula para else/elif/endif
+            emit_jump(OP.JUMP_IF_FALSE, else_label)
+            
+            -- Empilha informações do bloco if
+            table.insert(if_stack, {
+                else_label = else_label,
+                end_label = end_label,
+                has_else = false
+            })
+            
+        elseif line:match("^elif%s+") then
+            -- elif condição:
+            if #if_stack == 0 then
+                error("elif sem if correspondente")
+            end
+            
+            local condition = line:match("^elif%s+(.+):")
+            local block = if_stack[#if_stack]
+            
+            -- Pula para o fim do bloco if (se chegou aqui, o if anterior foi verdadeiro)
+            emit_jump(OP.JUMP, block.end_label)
+            
+            -- Marca o label do else anterior
+            mark_label(block.else_label)
+            
+            -- Compila a nova condição
+            parse_condition(condition)
+            
+            -- Cria novo label para o próximo else/elif/endif
+            block.else_label = new_label()
+            emit_jump(OP.JUMP_IF_FALSE, block.else_label)
+            
+        elseif line:match("^else:") then
+            -- else:
+            if #if_stack == 0 then
+                error("else sem if correspondente")
+            end
+            
+            local block = if_stack[#if_stack]
+            
+            -- Pula para o fim (se chegou aqui, algum if/elif anterior foi verdadeiro)
+            emit_jump(OP.JUMP, block.end_label)
+            
+            -- Marca o label do else
+            mark_label(block.else_label)
+            block.has_else = true
+            
+        elseif line:match("^endif") then
+            -- endif
+            if #if_stack == 0 then
+                error("endif sem if correspondente")
+            end
+            
+            local block = table.remove(if_stack)
+            
+            -- Se não teve else, marca o else_label aqui
+            if not block.has_else then
+                mark_label(block.else_label)
+            end
+            
+            -- Marca o fim do bloco
+            mark_label(block.end_label)
+        end
+        
+        i = i + 1
+    end
+    
+    -- Verifica se todos os ifs foram fechados
+    if #if_stack > 0 then
+        error("if sem endif correspondente")
+    end
+    
+    -- Verifica se encontrou a função main (obrigatória)
+    if not in_function then
+        error("Erro: função 'main' não encontrada!")
+    end
+    
+    -- Adiciona instrução HALT no final (para a execução)
+    emit(OP.HALT)
+    
+    -- Resolve todos os jumps pendentes
+    patch_jumps()
+end
+
+-- ============================================
+-- FLUXO DE EXECUÇÃO DO COMPILADOR
+-- ============================================
+
+-- Abre e lê o arquivo de código Tea
+local f = io.open(input_file, "r")
+if not f then
+    print("!! Erro: Arquivo não encontrado!")
+    os.exit(1)
+end
+local source = f:read("*all")  -- Lê todo o conteúdo
+f:close()
+
+print("[*] Compilando: " .. input_file)
+
+-- Executa o parser (protegido contra erros)
+local success, err = pcall(parse, source)
+if not success then
+    print("!! " .. err)
+    os.exit(1)
+end
+
+-- Salva o bytecode em formato binário
+-- Cada número é salvo como inteiro de 32 bits (4 bytes)
+local out = io.open(output_file, "wb")
+for _, v in ipairs(bytecode) do
+    out:write(string.pack("i4", v))  -- "i4" = inteiro de 32 bits
+end
+out:close()
+
+print("[+] Sucesso! '" .. output_file .. "' gerado.")
+print("[*] Variáveis: " .. var_count)

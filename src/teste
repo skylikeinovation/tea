@@ -1,0 +1,13 @@
+#!/usr/bin/env lua
+-- Código gerado automaticamente pelo Tea
+-- Não edite este arquivo diretamente!
+
+function main()
+    print("Bem-vindo ao Tea!")
+    local numero_1 = 10
+    local numero_2 = 5
+    print(numero_1 + numero_2)
+end
+
+-- Executa o programa
+main()

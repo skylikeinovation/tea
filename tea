@@ -1,0 +1,248 @@
+#!/bin/bash
+# Script para compilar e executar programas Tea
+
+# Detecta qual versão do Lua está disponível
+LUA_CMD=""
+for cmd in lua lua5.4 lua5.3 lua5.2 lua5.1; do
+    if command -v "$cmd" &> /dev/null; then
+        LUA_CMD="$cmd"
+        break
+    fi
+done
+
+if [ -z "$LUA_CMD" ]; then
+    echo "❌ Erro: Lua não encontrado!"
+    echo ""
+    echo "Instale o Lua primeiro:"
+    echo "  sudo apt install lua5.4"
+    exit 1
+fi
+
+# Verifica argumentos
+if [ -z "$1" ]; then
+    echo "Uso: ./tea <arquivo.tea>                     (compila e executa)"
+    echo "      ./tea -c <arquivo.tea>                 (apenas compila)"
+    echo "      ./tea -r <arquivo.teac>                (executa bytecode)"
+    echo "      ./tea --trans <arquivo.tea>            (transpila para Lua)"
+    echo "      ./tea --build-exec <arquivo.tea>       (gera executável)"
+    echo "      ./tea -o <nome> [opções] <arquivo>     (-o funciona com qualquer comando)"
+    echo "      ./tea --clear <diretório>              (limpa arquivos .teac)"
+    exit 1
+fi
+
+# Processa flag -o se presente
+OUTPUT_NAME=""
+ARGS=("$@")
+
+# Procura por -o nos argumentos
+for i in "${!ARGS[@]}"; do
+    if [ "${ARGS[$i]}" == "-o" ]; then
+        OUTPUT_NAME="${ARGS[$i+1]}"
+        # Remove -o e o nome dos argumentos
+        unset 'ARGS[$i]'
+        unset 'ARGS[$i+1]'
+        break
+    fi
+done
+
+# Reconstrói os argumentos sem -o
+set -- "${ARGS[@]}"
+
+# Comandos especiais
+if [ "$1" == "help" ] || [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
+    echo "🍵 Tea Language v0.1.0"
+    echo "======================================"
+    echo ""
+    echo "Uso:"
+    echo "  tea <arquivo.tea>                     Compila e executa"
+    echo "  tea -c <arquivo.tea>                  Apenas compila (.teac)"
+    echo "  tea -r <arquivo.teac>                 Executa bytecode"
+    echo "  tea --trans <arquivo.tea>             Transpila para Lua"
+    echo "  tea --build-exec <arquivo.tea>        Gera executável"
+    echo "  tea -o <nome> [comando] <arquivo>     Define nome do output"
+    echo "  tea --clear <diretório>               Limpa arquivos .teac"
+    echo "  tea version                           Mostra versão"
+    echo "  tea help                              Mostra esta ajuda"
+    echo ""
+    echo "Exemplos:"
+    echo "  tea programa.tea                      # Executa programa"
+    echo "  tea -c programa.tea                   # Gera programa.teac"
+    echo "  tea --trans -o app programa.tea       # Gera app.lua"
+    echo "  tea --build-exec -o app programa.tea  # Gera executável 'app'"
+    echo "  tea --clear examples                  # Limpa examples/*.teac"
+    echo ""
+    echo "Documentação: https://github.com/seu-usuario/tea"
+    exit 0
+fi
+
+if [ "$1" == "version" ] || [ "$1" == "--version" ] || [ "$1" == "-v" ]; then
+    echo "Tea Language v0.1.0-dev"
+    echo "Compilador e VM para a linguagem Tea"
+    echo "Licença: apache 2.0"
+    exit 0
+fi
+
+# Modo de limpeza: --clear para remover .teac
+if [ "$1" == "--clear" ]; then
+    if [ -z "$2" ]; then
+        DIR="."
+    else
+        DIR="$2"
+    fi
+    
+    if [ ! -d "$DIR" ]; then
+        echo "❌ Erro: Diretório '$DIR' não encontrado!"
+        exit 1
+    fi
+    
+    echo "🧹 Limpando arquivos .teac em: $DIR"
+    COUNT=$(find "$DIR" -name "*.teac" -type f | wc -l)
+    
+    if [ "$COUNT" -eq 0 ]; then
+        echo "[*] Nenhum arquivo .teac encontrado"
+    else
+        find "$DIR" -name "*.teac" -type f -delete
+        echo "[+] $COUNT arquivo(s) .teac removido(s)"
+    fi
+    exit 0
+
+# Modo de transpilação: --trans para gerar Lua
+elif [ "$1" == "--trans" ]; then
+    if [ -z "$2" ]; then
+        echo "Uso: ./tea --trans <arquivo.tea>"
+        exit 1
+    fi
+    
+    PROGRAM="$2"
+    
+    if [ ! -f "$PROGRAM" ]; then
+        echo "❌ Erro: Arquivo '$PROGRAM' não encontrado!"
+        exit 1
+    fi
+    
+    # Define nome do output
+    if [ -n "$OUTPUT_NAME" ]; then
+        OUTPUT_FILE="${OUTPUT_NAME}.lua"
+    else
+        OUTPUT_FILE="${PROGRAM%.tea}.lua"
+    fi
+    
+    echo "🔄 Tea → Lua Transpiler"
+    echo "======================================"
+    $LUA_CMD src/transpiler.lua "$PROGRAM" "$OUTPUT_FILE"
+    exit 0
+
+# Modo de build executável: --build-exec
+elif [ "$1" == "--build-exec" ]; then
+    if [ -z "$2" ]; then
+        echo "Uso: ./tea --build-exec <arquivo.tea>"
+        exit 1
+    fi
+    
+    PROGRAM="$2"
+    
+    if [ ! -f "$PROGRAM" ]; then
+        echo "❌ Erro: Arquivo '$PROGRAM' não encontrado!"
+        exit 1
+    fi
+    
+    # Define nome do executável
+    if [ -n "$OUTPUT_NAME" ]; then
+        EXEC_NAME="$OUTPUT_NAME"
+    else
+        EXEC_NAME="${PROGRAM%.tea}"
+    fi
+    
+    echo "📦 Gerando executável standalone..."
+    echo "======================================"
+    
+    # Transpila para Lua temporário
+    TEMP_LUA=$(mktemp --suffix=.lua)
+    $LUA_CMD src/transpiler.lua "$PROGRAM" "$TEMP_LUA"
+    
+    # Verifica se luastatic está instalado
+    if ! command -v luastatic &> /dev/null; then
+        echo ""
+        echo "⚠️  luastatic não encontrado!"
+        echo "Alternativa: usando shebang..."
+        
+        # Cria executável com shebang
+        echo "#!/usr/bin/env $LUA_CMD" > "$EXEC_NAME"
+        cat "$TEMP_LUA" >> "$EXEC_NAME"
+        chmod +x "$EXEC_NAME"
+        
+        echo "[+] Executável gerado: $EXEC_NAME"
+        echo "[*] Execute com: ./$EXEC_NAME"
+    else
+        # Usa luastatic para gerar binário standalone
+        luastatic "$TEMP_LUA" /usr/bin/$LUA_CMD -o "$EXEC_NAME"
+        echo "[+] Executável standalone gerado: $EXEC_NAME"
+    fi
+    
+    # Remove arquivo temporário
+    rm -f "$TEMP_LUA"
+    exit 0
+
+# Modo de compilação: -c para apenas compilar
+elif [ "$1" == "-c" ]; then
+    if [ -z "$2" ]; then
+        echo "Uso: ./tea -c <arquivo.tea>"
+        exit 1
+    fi
+    
+    PROGRAM="$2"
+    
+    if [ ! -f "$PROGRAM" ]; then
+        echo "❌ Erro: Arquivo '$PROGRAM' não encontrado!"
+        exit 1
+    fi
+    
+    echo "🍵 Tea Language - Compilando"
+    echo "======================================"
+    $LUA_CMD src/tea.lua "$PROGRAM"
+    
+    # Se tem -o, renomeia o output
+    if [ -n "$OUTPUT_NAME" ]; then
+        BASENAME="${PROGRAM%.tea}"
+        mv "${BASENAME}.teac" "${OUTPUT_NAME}.teac"
+        echo "[*] Renomeado para: ${OUTPUT_NAME}.teac"
+    fi
+
+# Modo de execução: -r para rodar bytecode
+elif [ "$1" == "-r" ]; then
+    if [ -z "$2" ]; then
+        echo "Uso: ./tea -r <arquivo.teac>"
+        exit 1
+    fi
+    
+    BYTECODE="$2"
+    
+    if [ ! -f "$BYTECODE" ]; then
+        echo "❌ Erro: Arquivo '$BYTECODE' não encontrado!"
+        exit 1
+    fi
+    
+    $LUA_CMD src/vm.lua "$BYTECODE"
+    
+else
+    # Modo normal: compila e executa
+    PROGRAM="$1"
+    BASENAME="${PROGRAM%.tea}"
+    
+    if [ ! -f "$PROGRAM" ]; then
+        echo "❌ Erro: Arquivo '$PROGRAM' não encontrado!"
+        exit 1
+    fi
+    
+    echo "🍵 Tea Language - Compilando e Executando"
+    echo "=========================================="
+    
+    # Compila
+    $LUA_CMD src/tea.lua "$PROGRAM"
+    
+    if [ $? -eq 0 ]; then
+        echo ""
+        # Executa
+        $LUA_CMD src/vm.lua "${BASENAME}.teac"
+    fi
+fi

@@ -1,0 +1,82 @@
+fun main():
+    print("=== TEA vs PYTHON - O que funciona? ===")
+    print("")
+    
+    // ✅ FUNCIONA: Variáveis
+    print("✅ Variáveis:")
+    val nome = "Tea"
+    val versao = "0.3.0"
+    print("  ", nome, "v" + versao)
+    print("")
+    
+    // ✅ FUNCIONA: Arrays (1-indexed)
+    print("✅ Arrays (começam em 1):")
+    val numeros = [10, 20, 30, 40, 50]
+    val primeiro = numeros[1]
+    val ultimo = numeros[5]
+    print("  Primeiro:", primeiro)
+    print("  Último:", ultimo)
+    print("")
+    
+    // ✅ FUNCIONA: Dicionários
+    print("✅ Dicionários:")
+    val pessoa = {nome: "João", idade: 25}
+    print("  ", pessoa)
+    print("")
+    
+    // ✅ FUNCIONA: For com range
+    print("✅ For com range:")
+    for i in range(3):
+        print("  Número:", i)
+    endfor
+    print("")
+    
+    // ✅ FUNCIONA: Operadores lógicos
+    print("✅ Operadores lógicos:")
+    val x = 10
+    val y = 5
+    if x > 5 and y < 10:
+        print("  x > 5 AND y < 10: verdadeiro")
+    endif
+    print("")
+    
+    // ✅ FUNCIONA: Strings
+    print("✅ Strings:")
+    val texto = "hello"
+    val maiusculo = texto.upper()
+    val concatenado = "Tea" + " " + "Language"
+    print("  Upper:", maiusculo)
+    print("  Concat:", concatenado)
+    print("")
+    
+    // ✅ FUNCIONA: Matemática inline
+    print("✅ Matemática inline:")
+    val a = 10
+    val b = 5
+    val soma = a + b
+    val mult = a * b
+    print("  10 + 5 =", soma)
+    print("  10 * 5 =", mult)
+    print("")
+    
+    print("=== O que AINDA NÃO funciona (v0.4.0): ===")
+    print("")
+    print("❌ For-in sobre arrays:")
+    print("   for item in lista:")
+    print("")
+    print("❌ Funções com parâmetros:")
+    print("   fun soma(a, b):")
+    print("       return a + b")
+    print("")
+    print("❌ String interpolation:")
+    print("   print com variáveis dentro")
+    print("")
+    print("❌ Métodos de array:")
+    print("   lista.append(4)")
+    print("   lista.remove(2)")
+    print("")
+    print("❌ Acesso a dicionários:")
+    print("   val nome = pessoa.get(chave)")
+    print("")
+    
+    print("=== Tea está em ~40% do Python! ===")
