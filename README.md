@@ -1,14 +1,14 @@
-# 🍵 Tea Language
+# 🍵 Tea Language v0.1.0-dev
 
-Uma linguagem de programação minimalista baseada em pilha (stack-based), escrita em Lua.
+Uma linguagem de programação moderna e minimalista com sintaxe inspirada em Python, compilada para bytecode e executada em uma VM stack-based escrita em Lua.
 
 ## 📦 Instalação
 
-### Instalar Lua
+### 1. Instalar Lua
 
 **Ubuntu/Debian:**
 ```bash
-sudo apt install lua5.3
+sudo apt install lua5.4
 ```
 
 **Fedora:**
@@ -26,89 +26,222 @@ sudo pacman -S lua
 brew install lua
 ```
 
-## 📋 Características
+### 2. Instalar Tea
 
-- **Sintaxe simples**: Notação polonesa reversa (RPN)
-- **Baseada em pilha**: Todas as operações usam uma stack
-- **Compilada**: Gera bytecode antes da execução
-- **Extensível**: Fácil adicionar novos opcodes
+**Linux/macOS (Bash/Zsh):**
+```bash
+cd tea
+bash install/install-bash.sh  # ou install-zsh.sh
+```
+
+**Fish Shell:**
+```bash
+fish install/install-fish.sh
+```
+
+**Windows:**
+```cmd
+cd tea\windows
+install.bat
+```
 
 ## 🚀 Como Usar
 
-### Compilar e Executar
-
 ```bash
-# Tornar o script executável (primeira vez)
-chmod +x tea
-
 # Executar um programa
-./tea examples/hello.tea
-```
+tea programa.tea
 
-### Manualmente
+# Compilar todos .tea no diretório
+tea build
 
-```bash
-# 1. Compilar (gera arquivo.teac)
-lua src/tea.lua examples/hello.tea
+# Apenas compilar (gera .teac)
+tea -c programa.tea
 
-# 2. Executar o bytecode
-lua src/vm.lua examples/hello.teac
+# Executar bytecode
+tea -r programa.teac
+
+# Ver ajuda
+tea help
 ```
 
 ## 📖 Sintaxe
 
-### Comandos Disponíveis
-
-| Comando | Descrição |
-|---------|-----------|
-| `PUSH <num>` | Empilha um número (automático ao escrever números) |
-| `ADD` | Soma os dois valores do topo da pilha |
-| `SUB` | Subtrai (a - b) |
-| `MULT` | Multiplica |
-| `DIV` | Divide (a / b) |
-| `PRINT` | Imprime o valor do topo da pilha |
-| `HALT` | Para a execução (automático no final) |
-
-### Comentários
-
-Use `#` para comentários:
+### Hello World
 
 ```tea
-# Isto é um comentário
-5 3 ADD PRINT  # Calcula 5 + 3
+fun main():
+    print("Olá, mundo!")
 ```
 
-## 💡 Exemplos
-
-### Hello World (Matemático)
+### Variáveis
 
 ```tea
-# examples/hello.tea
-5 3 ADD PRINT
+fun main():
+    val nome = "João"
+    val idade = 25
+    val altura = 1.75
+    
+    print("Nome:", nome)
+    print("Idade:", idade)
 ```
 
-**Saída**: `8`
-
-### Calculadora
+### Operações Matemáticas
 
 ```tea
-# examples/calc.tea
-10 5 ADD    # Stack: [15]
-2 MULT      # Stack: [30]
-3 SUB       # Stack: [27]
-PRINT       # Imprime: 27
+fun main():
+    val x = 10 + 5
+    val y = x * 2
+    val z = y / 3
+    
+    print(z)  // 10
 ```
 
-**Saída**: `27`
-
-### Divisão
+### Input do Usuário
 
 ```tea
-# examples/division.tea
-100 4 DIV PRINT
+fun main():
+    val nome = input("Digite seu nome: ")
+    val idade = int(input("Digite sua idade: "))
+    
+    print("Olá,", nome, "!")
+    print("Você tem", idade, "anos")
 ```
 
-**Saída**: `25.0`
+### Condicionais
+
+```tea
+fun main():
+    val idade = int(input("Idade: "))
+    
+    if idade >= 18:
+        print("Maior de idade")
+    elif idade >= 13:
+        print("Adolescente")
+    else:
+        print("Criança")
+    endif
+```
+
+### Loops
+
+**While:**
+```tea
+fun main():
+    val i = 0
+    while i < 5:
+        print(i)
+        val i = i + 1
+    endwhile
+```
+
+**For (range):**
+```tea
+fun main():
+    for i in range(10):
+        print(i)
+    endfor
+```
+
+**For-in (arrays):**
+```tea
+fun main():
+    val lista = [1, 2, 3, 4, 5]
+    
+    for item in lista:
+        print(item)
+    endfor
+```
+
+### Arrays
+
+```tea
+fun main():
+    val numeros = [1, 2, 3, 4, 5]
+    val frutas = ["maçã", "banana", "laranja"]
+    
+    print(numeros[1])  // 1 (arrays são 1-indexed!)
+    print(frutas[2])   // "banana"
+```
+
+### Dicionários
+
+```tea
+fun main():
+    val pessoa = {nome: "João", idade: 25, cidade: "SP"}
+    
+    print(pessoa)
+```
+
+### Strings
+
+```tea
+fun main():
+    val texto = "hello world"
+    val maiusculo = texto.upper()
+    val minusculo = texto.lower()
+    
+    print(maiusculo)  // "HELLO WORLD"
+    print(minusculo)  // "hello world"
+    
+    val junto = "Hello" + " " + "World"
+    print(junto)  // "Hello World"
+```
+
+### Try/Except
+
+```tea
+fun main():
+    try:
+        val num = int(input("Digite um número: "))
+        print("Você digitou:", num)
+    except:
+        print("❌ Erro: Digite apenas números!")
+    endtry
+```
+
+### Operadores Lógicos
+
+```tea
+fun main():
+    val x = 10
+    val y = 5
+    
+    if x > 5 and y < 10:
+        print("Ambos verdadeiros")
+    endif
+    
+    if x == 0 or y == 0:
+        print("Pelo menos um é zero")
+    endif
+    
+    if not x == 0:
+        print("x não é zero")
+    endif
+```
+
+## 📋 Características Implementadas
+
+✅ **Básico:**
+- Variáveis (`val nome = valor`)
+- Print com múltiplos argumentos
+- Input (`input()`, `int(input())`)
+- Operações matemáticas inline
+- Comentários (`//` e `\\ \\`)
+
+✅ **Estruturas de Dados:**
+- Arrays 1-indexed (`[1, 2, 3]`)
+- Dicionários (`{chave: valor}`)
+- Strings avançadas (`.upper()`, `.lower()`, concatenação)
+
+✅ **Controle de Fluxo:**
+- Condicionais (`if`, `elif`, `else`)
+- Loops (`while`, `for in range()`, `for in array`)
+- Try/Except
+
+✅ **Operadores:**
+- Aritméticos: `+`, `-`, `*`, `/`
+- Comparação: `==`, `n=`, `<`, `>`, `<=`, `>=`
+- Lógicos: `and`, `or`, `not`
 
 ## 🏗️ Arquitetura
 
@@ -119,7 +252,7 @@ PRINT       # Imprime: 27
        │
        ▼
 ┌─────────────┐
-│  Compilador │  (tea.lua)
+│  Compilador │  (src/tea.lua)
 └──────┬──────┘
        │
        ▼
@@ -129,7 +262,7 @@ PRINT       # Imprime: 27
        │
        ▼
 ┌─────────────┐
-│ Máquina VM  │  (vm.lua)
+│ Máquina VM  │  (src/vm.lua)
 └──────┬──────┘
        │
        ▼
@@ -143,52 +276,50 @@ PRINT       # Imprime: 27
 ```
 tea/
 ├── src/
-│   ├── tea.lua      # Compilador (source → bytecode)
-│   └── vm.lua       # Máquina Virtual (executa bytecode)
+│   ├── tea.lua          # Compilador (Tea → Bytecode)
+│   ├── vm.lua           # Máquina Virtual
+│   └── transpiler.lua   # Transpilador (Tea → Lua) [EXPERIMENTAL]
 ├── examples/
-│   ├── hello.tea    # Exemplo básico
-│   ├── calc.tea     # Calculadora
-│   └── division.tea # Divisão
-├── tea              # Script de execução
+│   ├── completo.tea     # Exemplo completo
+│   ├── arrays.tea       # Arrays
+│   ├── for-in.tea       # For-in loops
+│   ├── try-except.tea   # Tratamento de erros
+│   └── ...
+├── install/
+│   ├── install-bash.sh
+│   ├── install-zsh.sh
+│   └── install-fish.sh
+├── tea                  # CLI principal
 └── README.md
 ```
 
-## 🎯 Como Funciona
+## 🎯 Roadmap
 
-### 1. Compilação (tea.lua)
+Veja [ROADMAP.md](ROADMAP.md) para features planejadas.
 
-Transforma código Tea em bytecode:
+**Próximas funcionalidades:**
+- Funções com parâmetros e retorno
+- String interpolation (f-strings)
+- Classes e OOP
+- Módulos e imports
 
-```tea
-5 3 ADD PRINT
-```
+## ⚠️ Limitações Conhecidas
 
-Vira:
+- **Transpilador (--trans, --build-exec)**: Está desatualizado e não suporta features recentes (try/except, for-in, etc). Use apenas o modo compilado (bytecode).
+- **Funções**: Ainda não suportam parâmetros (em desenvolvimento)
 
-```
-[PUSH, 5, PUSH, 3, ADD, PRINT, HALT]
-```
+## 📝 Comparação com Python
 
-### 2. Execução (vm.lua)
+Veja [COMPARISON.md](COMPARISON.md) para comparação detalhada com Python.
 
-A VM processa cada instrução usando uma pilha:
+## 📄 Licença
 
-```
-PUSH 5    → Stack: [5]
-PUSH 3    → Stack: [5, 3]
-ADD       → Stack: [8]
-PRINT     → Imprime: 8
-```
+Apache 2.0 - Veja LICENSE para detalhes.
 
-## 🚀 Próximas Funcionalidades
+## 🤝 Contribuindo
 
-- [ ] Variáveis (`SET`, `GET`)
-- [ ] Condicionais (`IF`, `ELSE`)
-- [ ] Loops (`WHILE`, `FOR`)
-- [ ] Funções definidas pelo usuário
-- [ ] Strings e I/O
-- [ ] Operações lógicas (`AND`, `OR`, `NOT`)
+Contribuições são bem-vindas! Abra uma issue ou pull request.
 
-## 📝 Licença
+---
 
-Projeto educacional - Use como quiser! ☕
+**Tea Language** - Uma linguagem simples e poderosa para aprender e criar! ☕
