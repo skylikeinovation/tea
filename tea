@@ -1,6 +1,9 @@
 #!/bin/bash
 # Script para compilar e executar programas Tea
 
+# Diretório de instalação do Tea
+TEA_HOME="${TEA_HOME:-$HOME/Documentos/skylikeProjects/tea}"
+
 # Detecta qual versão do Lua está disponível
 LUA_CMD=""
 for cmd in lua lua5.4 lua5.3 lua5.2 lua5.1; do
@@ -27,7 +30,45 @@ if [ -z "$1" ]; then
     echo "      ./tea --build-exec <arquivo.tea>       (gera executável)"
     echo "      ./tea -o <nome> [opções] <arquivo>     (-o funciona com qualquer comando)"
     echo "      ./tea --clear <diretório>              (limpa arquivos .teac)"
+    echo "      ./tea build                            (compila todos .tea no diretório)"
     exit 1
+fi
+
+# MODO BUILD SEM ARGUMENTOS (antes de processar -o)
+if [ "$1" == "build" ] && [ -z "$2" ]; then
+    echo "🍵 Tea Language - Build"
+    echo "======================================"
+    
+    # Encontra todos os .tea no diretório atual
+    shopt -s nullglob
+    TEA_FILES=(*.tea)
+    shopt -u nullglob
+    
+    if [ ${#TEA_FILES[@]} -eq 0 ]; then
+        echo "❌ Nenhum arquivo .tea encontrado no diretório atual"
+        exit 1
+    fi
+    
+    COUNT=0
+    ERRORS=0
+    
+    for file in "${TEA_FILES[@]}"; do
+        echo "[*] Compilando: $file"
+        
+        if $LUA_CMD "$TEA_HOME/src/tea.lua" "$file" 2>&1 | grep -q "Sucesso"; then
+            COUNT=$((COUNT + 1))
+        else
+            ERRORS=$((ERRORS + 1))
+        fi
+    done
+    
+    echo ""
+    echo "======================================"
+    echo "[+] $COUNT arquivo(s) compilado(s)"
+    if [ $ERRORS -gt 0 ]; then
+        echo "[-] $ERRORS erro(s)"
+    fi
+    exit 0
 fi
 
 # Processa flag -o se presente
@@ -131,7 +172,7 @@ elif [ "$1" == "--trans" ]; then
     
     echo "🔄 Tea → Lua Transpiler"
     echo "======================================"
-    $LUA_CMD src/transpiler.lua "$PROGRAM" "$OUTPUT_FILE"
+    $LUA_CMD "$TEA_HOME/src/transpiler.lua" "$PROGRAM" "$OUTPUT_FILE"
     exit 0
 
 # Modo de build executável: --build-exec
@@ -160,7 +201,7 @@ elif [ "$1" == "--build-exec" ]; then
     
     # Transpila para Lua temporário
     TEMP_LUA=$(mktemp --suffix=.lua)
-    $LUA_CMD src/transpiler.lua "$PROGRAM" "$TEMP_LUA"
+    $LUA_CMD "$TEA_HOME/src/transpiler.lua" "$PROGRAM" "$TEMP_LUA"
     
     # Verifica se luastatic está instalado
     if ! command -v luastatic &> /dev/null; then
@@ -202,7 +243,7 @@ elif [ "$1" == "-c" ] || [ "$1" == "build" ]; then
     
     echo "🍵 Tea Language - Compilando"
     echo "======================================"
-    $LUA_CMD src/tea.lua "$PROGRAM"
+    $LUA_CMD "$TEA_HOME/src/tea.lua" "$PROGRAM"
     
     # Se tem -o, renomeia o output
     if [ -n "$OUTPUT_NAME" ]; then
@@ -225,7 +266,7 @@ elif [ "$1" == "-r" ]; then
         exit 1
     fi
     
-    $LUA_CMD src/vm.lua "$BYTECODE"
+    $LUA_CMD "$TEA_HOME/src/vm.lua" "$BYTECODE"
     
 else
     # Modo normal: compila e executa
@@ -241,11 +282,11 @@ else
     echo "=========================================="
     
     # Compila
-    $LUA_CMD src/tea.lua "$PROGRAM"
+    $LUA_CMD "$TEA_HOME/src/tea.lua" "$PROGRAM"
     
     if [ $? -eq 0 ]; then
         echo ""
         # Executa
-        $LUA_CMD src/vm.lua "${BASENAME}.teac"
+        $LUA_CMD "$TEA_HOME/src/vm.lua" "${BASENAME}.teac"
     fi
 fi
