@@ -1,0 +1,31 @@
+fun main():
+    print("=== Menu da Pizzaria Belbel ===")
+    print("")
+    print("1 - Pizza Margherita")
+    print("2 - Pizza Calabresa")
+    print("3 - Pizza Portuguesa")
+    print("0 - Sair")
+    print("")
+    
+    try:
+        val opcao = int(input("Escolha sua opção: "))
+        
+        if opcao == 1:
+            print("✅ Você escolheu: Pizza Margherita!")
+        elif opcao == 2:
+            print("✅ Você escolheu: Pizza Calabresa!")
+        elif opcao == 3:
+            print("✅ Você escolheu: Pizza Portuguesa!")
+        elif opcao == 0:
+            print("👋 Até logo!")
+        else:
+            print("❌ Opção inválida!")
+        endif
+        
+    except:
+        print("❌ Erro: Digite só números!")
+        print("Tente novamente...")
+    endtry
+    
+    print("")
+    print("=== Obrigado por usar a Pizzaria Belbel! ===")

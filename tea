@@ -55,6 +55,7 @@ if [ "$1" == "help" ] || [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
     echo ""
     echo "Uso:"
     echo "  tea <arquivo.tea>                     Compila e executa"
+    echo "  tea build <arquivo.tea>               Apenas compila (.teac)"
     echo "  tea -c <arquivo.tea>                  Apenas compila (.teac)"
     echo "  tea -r <arquivo.teac>                 Executa bytecode"
     echo "  tea --trans <arquivo.tea>             Transpila para Lua"
@@ -66,6 +67,7 @@ if [ "$1" == "help" ] || [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
     echo ""
     echo "Exemplos:"
     echo "  tea programa.tea                      # Executa programa"
+    echo "  tea build programa.tea                # Gera programa.teac"
     echo "  tea -c programa.tea                   # Gera programa.teac"
     echo "  tea --trans -o app programa.tea       # Gera app.lua"
     echo "  tea --build-exec -o app programa.tea  # Gera executável 'app'"
@@ -183,10 +185,11 @@ elif [ "$1" == "--build-exec" ]; then
     rm -f "$TEMP_LUA"
     exit 0
 
-# Modo de compilação: -c para apenas compilar
-elif [ "$1" == "-c" ]; then
+# Modo de compilação: -c ou build para apenas compilar
+elif [ "$1" == "-c" ] || [ "$1" == "build" ]; then
     if [ -z "$2" ]; then
-        echo "Uso: ./tea -c <arquivo.tea>"
+        echo "Uso: tea build <arquivo.tea>"
+        echo "  ou: tea -c <arquivo.tea>"
         exit 1
     fi
     
