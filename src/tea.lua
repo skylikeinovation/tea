@@ -102,6 +102,30 @@ local function remove_comments(source)
     return source
 end
 
+-- Processa includes (@include)
+local function process_includes(source, base_path)
+    base_path = base_path or "."
+    
+    -- Procura por @include("caminho")
+    source = source:gsub('@include%("([^"]+)"%)', function(path)
+        -- Resolve caminho relativo
+        local full_path = base_path .. "/" .. path
+        
+        -- Lê o arquivo
+        local f = io.open(full_path, "r")
+        if not f then
+            error("!! Erro: Arquivo de include não encontrado: " .. full_path)
+        end
+        local content = f:read("*all")
+        f:close()
+        
+        -- Retorna o conteúdo (será injetado no código)
+        return "-- [INCLUDE: " .. path .. "]\n" .. content .. "\n-- [END INCLUDE]"
+    end)
+    
+    return source
+end
+
 -- Compila expressão (suporta operações inline)
 local function compile_expression(expr)
     expr = expr:match("^%s*(.-)%s*$")
@@ -331,6 +355,10 @@ end
 -- ============================================
 
 local function parse(source)
+    -- Processa includes primeiro
+    local base_path = input_file:match("(.*/)")  or "."
+    source = process_includes(source, base_path)
+    
     source = remove_comments(source)
 
     local lines = {}
