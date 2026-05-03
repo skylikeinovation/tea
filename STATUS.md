@@ -2,6 +2,14 @@
 
 ## ✅ MUDANÇAS RECENTES
 
+### For-in sobre arrays implementado! 🎉 (v0.4.0)
+```tea
+val lista = [10, 20, 30]
+for item in lista:
+    print(item)  // 10, 20, 30
+endfor
+```
+
 ### Arrays agora começam em 1! 🎉
 ```tea
 val lista = [10, 20, 30, 40, 50]
@@ -13,7 +21,7 @@ val ultimo = lista[5]    // 50
 
 ---
 
-## 📊 Nível Atual: **~40% do Python**
+## 📊 Nível Atual: **~45% do Python** ⬆️
 
 ### ✅ O QUE FUNCIONA (v0.3.0)
 
@@ -101,7 +109,7 @@ print("Olá,", nome, "!")
 
 ### Prioridade ALTA (v0.4.0)
 
-#### 1. **For-in sobre arrays**
+#### 1. **For-in sobre arrays** ✅ IMPLEMENTADO!
 ```tea
 val lista = [1, 2, 3]
 for item in lista:
@@ -109,7 +117,7 @@ for item in lista:
 endfor
 ```
 
-#### 2. **Funções com parâmetros**
+#### 2. **Funções com parâmetros** ⏳
 ```tea
 fun soma(a, b):
     return a + b
@@ -203,7 +211,7 @@ val partes = texto.split(",")  // ["a", "b", "c"]
 
 ## 🎯 Roadmap
 
-### v0.3.0 (ATUAL) ✅
+### v0.3.0 ✅
 - ✅ Arrays (1-indexed)
 - ✅ Dicionários
 - ✅ For loops com range
@@ -212,8 +220,8 @@ val partes = texto.split(",")  // ["a", "b", "c"]
 - ✅ Matemática inline
 - ✅ Print com múltiplos args
 
-### v0.4.0 (PRÓXIMO) ⏳
-- ⏳ For-in sobre arrays
+### v0.4.0 (EM ANDAMENTO) ⏳
+- ✅ For-in sobre arrays
 - ⏳ Funções com parâmetros
 - ⏳ Métodos de array
 - ⏳ Acesso a dicionários
@@ -239,8 +247,8 @@ val partes = texto.split(",")  // ["a", "b", "c"]
 ```
 v0.1.0: ████░░░░░░░░░░░░░░░░ 20% - Básico
 v0.2.0: ████████░░░░░░░░░░░░ 30% - Condicionais e loops
-v0.3.0: ████████████░░░░░░░░ 40% - Arrays, dicts, strings ✅ ATUAL
-v0.4.0: ████████████████░░░░ 60% - Funções e métodos
+v0.3.0: ████████████░░░░░░░░ 40% - Arrays, dicts, strings
+v0.4.0: █████████████░░░░░░░ 45% - For-in ✅ ATUAL
 v0.5.0: ██████████████████░░ 70% - OOP e exceções
 v1.0.0: ████████████████████ 90% - Linguagem completa
 ```

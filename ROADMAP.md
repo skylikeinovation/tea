@@ -75,7 +75,7 @@ endwhile
 
 ## 🚧 Próximas Funcionalidades (v0.4.0)
 
-### **1. For-in sobre Arrays**
+### **1. For-in sobre Arrays** ✅ IMPLEMENTADO!
 ```tea
 val lista = [1, 2, 3]
 for item in lista:
@@ -83,7 +83,7 @@ for item in lista:
 endfor
 ```
 
-### **2. Funções com Parâmetros**
+### **2. Funções com Parâmetros** ⏳
 ```tea
 fun soma(a, b):
     return a + b
@@ -142,8 +142,8 @@ val chaves = pessoa.keys()
 ```
 
 ## 📅 Timeline
-- **v0.3.0** (CONCLUÍDO): Arrays, For, Operadores Lógicos, Dicts, Strings
-- **v0.4.0** (Próximo): For-in, Funções com params, f-strings
+- **v0.3.0** (CONCLUÍDO): Arrays, For range, Operadores Lógicos, Dicts, Strings
+- **v0.4.0** (EM ANDAMENTO): ✅ For-in, ⏳ Funções com params, ⏳ f-strings
 - **v0.5.0** (Futuro): Classes/OOP, Try/Except
 - **v1.0.0** (Meta): Linguagem completa estilo Python
 

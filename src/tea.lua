@@ -516,6 +516,43 @@ local function parse(source)
                     start_label = start_label,
                     end_label = end_label
                 })
+            
+            -- for item in lista: (NOVO!)
+            elseif line:match("in%s+[%w_%-]+:") then
+                local var, array_var = line:match("^for%s+([%w_%-]+)%s+in%s+([%w_%-]+):")
+                
+                -- Cria variável de índice temporária
+                local index_var = "__index_" .. var
+                
+                -- Inicializa índice em 1 (Tea é 1-indexed)
+                emit(OP.PUSH, 1)
+                emit(OP.STORE, get_var_index(index_var))
+                
+                local start_label = new_label()
+                local end_label = new_label()
+                
+                mark_label(start_label)
+                
+                -- Verifica se índice <= tamanho do array
+                emit(OP.LOAD, get_var_index(index_var))
+                emit(OP.LOAD, get_var_index(array_var))
+                emit(OP.ARRAY_LEN)
+                emit(OP.LE)
+                emit_jump(OP.JUMP_IF_FALSE, end_label)
+                
+                -- Carrega item atual: var = array[index]
+                emit(OP.LOAD, get_var_index(array_var))
+                emit(OP.LOAD, get_var_index(index_var))
+                emit(OP.ARRAY_GET)
+                emit(OP.STORE, get_var_index(var))
+                
+                table.insert(block_stack, {
+                    type = "for-in",
+                    var = var,
+                    index_var = index_var,
+                    start_label = start_label,
+                    end_label = end_label
+                })
             end
 
         elseif line:match("^endwhile") or line:match("^endfor") then
@@ -524,11 +561,17 @@ local function parse(source)
             local block = table.remove(block_stack)
 
             if block.type == "for" then
-                -- Incrementa variável
+                -- Incrementa variável (for range)
                 emit(OP.LOAD, get_var_index(block.var))
                 emit(OP.PUSH, 1)
                 emit(OP.ADD)
                 emit(OP.STORE, get_var_index(block.var))
+            elseif block.type == "for-in" then
+                -- Incrementa índice (for-in)
+                emit(OP.LOAD, get_var_index(block.index_var))
+                emit(OP.PUSH, 1)
+                emit(OP.ADD)
+                emit(OP.STORE, get_var_index(block.index_var))
             end
 
             emit_jump(OP.JUMP, block.start_label)
