@@ -103,8 +103,15 @@ local function patch_jumps()
 end
 
 local function remove_comments(source)
+    -- Remove comentários em bloco inline: //texto\\
+    source = source:gsub("//(.-)\\", "")
+    
+    -- Remove comentários de linha: // até o fim da linha
     source = source:gsub("//[^\n]*", "")
+    
+    -- Remove comentários em bloco multi-linha: \\ texto \\
     source = source:gsub("\\.-\\", "")
+    
     return source
 end
 
