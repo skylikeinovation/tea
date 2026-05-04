@@ -64,6 +64,10 @@ local OP = {
     RETURN = 81,            -- Retorna de função
     PUSH_PARAM = 82,        -- Empilha parâmetro
     
+    -- Break/Continue (NOVOS)
+    BREAK = 27,             -- Sai do bloco
+    CONTINUE = 28,          -- Continua próxima iteração
+    
     -- Garbage Collector (NOVOS)
     GC_COLLECT = 90,        -- Força coleta de lixo
     GC_INIT = 91,           -- Inicializa GC
@@ -523,6 +527,12 @@ local function execute(bytecode)
             call_stack[call_sp] = nil
             call_sp = call_sp - 1
             
+        elseif opcode == OP.BREAK then
+            -- Break sai do loop/bloco
+            -- O compilador deve gerar um JUMP para o label de fim do bloco
+            -- Se chegou aqui sem JUMP, é um erro
+            error("!! Erro: BREAK sem contexto de loop")
+            
         -- ========================================
         -- GARBAGE COLLECTOR (NOVOS)
         -- ========================================
@@ -549,21 +559,44 @@ local function execute(bytecode)
             -- Pega o caminho do módulo da pilha
             local path = pop()
             
-            -- Tenta carregar o módulo Lua
+            -- Tenta carregar módulo Tea (.teac) ou Lua (.lua)
             local success, module = pcall(function()
-                -- Adiciona extensão .lua se não tiver
-                if not path:match("%.lua$") then
-                    path = path .. ".lua"
-                end
+                local chunk, err
                 
-                -- Carrega o módulo
-                local chunk, err = loadfile(path)
-                if not chunk then
-                    error("Erro ao carregar módulo: " .. err)
-                end
+                -- Tenta .teac primeiro (bytecode Tea)
+                if io.open(path .. ".teac", "rb") then
+                    -- Carrega bytecode Tea
+                    local f = io.open(path .. ".teac", "rb")
+                    local bytecode_data = {}
+                    while true do
+                        local bytes = f:read(4)
+                        if not bytes then break end
+                        local value = string.unpack("i4", bytes)
+                        table.insert(bytecode_data, value)
+                    end
+                    f:close()
+                    
+                    -- Executa o bytecode em uma sub-VM
+                    -- Por enquanto, retorna uma tabela vazia
+                    -- (implementação completa seria complexa)
+                    return {}
                 
-                -- Executa e retorna o módulo
-                return chunk()
+                -- Tenta .lua (módulo Lua)
+                elseif io.open(path .. ".lua", "rb") then
+                    chunk, err = loadfile(path .. ".lua")
+                    if not chunk then
+                        error("Erro ao carregar módulo: " .. err)
+                    end
+                    return chunk()
+                
+                -- Tenta sem extensão (pode ser .lua ou .teac)
+                else
+                    chunk, err = loadfile(path)
+                    if not chunk then
+                        error("Erro ao carregar módulo: " .. err)
+                    end
+                    return chunk()
+                end
             end)
             
             if not success then

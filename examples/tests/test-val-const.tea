@@ -1,0 +1,22 @@
+// Teste de val (mutável) vs const (imutável)
+
+fun main():
+    // val é mutável
+    val x = 10
+    print("x inicial:", x)
+    
+    x = 20  // Reatribuição funciona
+    print("x após reatribuição:", x)
+    
+    x = 30
+    print("x final:", x)
+    
+    // const é imutável
+    const y = 100
+    print("y:", y)
+    
+    // Isso vai dar erro:
+    // y = 200  // Erro: Não é possível reatribuir const
+    
+    print("Teste concluído!")
+

@@ -1,13 +1,14 @@
 // Pizzaria Belbel
 // Sistema de pedidos
 
+use cmd = ../../tea-modules/cmd.lua
 
 fun main():
     print("🍕 Pizzaria Belbel")
     print("==================")
     print("")
     print("1 - Fazer pedido")
-    print("2 - Ver cardápio")
+    print("2 - listar restaurantes")
     print("3 - Sair")
     print("")
     
@@ -17,6 +18,5 @@ fun main():
     if correto == "s":
         print("ok")
     else:
+        cmd.clear()
         main()
-
-fun opcao

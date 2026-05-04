@@ -52,6 +52,14 @@ chmod +x "$INSTALL_DIR/tea"
 
 echo "[+] Tea instalado com sucesso!"
 echo ""
+
+# Instala Cup também
+echo "[*] Instalando Cup (Package Manager)..."
+cp cup-official/cup "$INSTALL_DIR/cup"
+chmod +x "$INSTALL_DIR/cup"
+echo "[+] Cup instalado com sucesso!"
+echo ""
+
 echo "Adicionando ao PATH do Bash..."
 
 # Adiciona ao .bashrc se ainda não estiver lá
@@ -65,12 +73,19 @@ fi
 echo ""
 echo "✅ Instalação completa!"
 echo ""
-echo "Comandos disponíveis:"
+echo "Comandos Tea:"
 echo "  tea <arquivo.tea>        # Compila e executa"
 echo "  tea build                # Compila todos .tea no diretório"
 echo "  tea -c <arquivo.tea>     # Apenas compila"
 echo "  tea -r <arquivo.teac>    # Executa bytecode"
 echo "  tea help                 # Ver ajuda completa"
+echo ""
+echo "Comandos Cup:"
+echo "  cup update               # Atualiza repositório de extensões"
+echo "  cup list                 # Lista pacotes disponíveis"
+echo "  cup install <pacote>     # Instala um pacote"
+echo "  cup remove <pacote>      # Remove um pacote"
+echo "  cup info <pacote>        # Informações do pacote"
 echo ""
 echo "Execute para ativar agora:"
 echo "  source ~/.bashrc"

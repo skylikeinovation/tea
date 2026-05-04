@@ -33,6 +33,109 @@ local function transpile(source)
     emit("-- Não edite este arquivo diretamente!")
     emit("")
     
+    -- ============================================
+    -- RUNTIME LIBRARY - Funções Tea em Lua
+    -- ============================================
+    emit("-- Tea Runtime Library")
+    emit("local _tea_runtime = {}")
+    emit("")
+    
+    -- Função input()
+    emit("function input(prompt)")
+    emit("    if prompt then")
+    emit("        io.write(prompt)")
+    emit("    end")
+    emit("    return io.read()")
+    emit("end")
+    emit("")
+    
+    -- Função print() - já existe em Lua, mas deixamos para compatibilidade
+    emit("-- print() já é nativa em Lua")
+    emit("")
+    
+    -- Função tostring()
+    emit("function tostring(value)")
+    emit("    return tostring(value)")
+    emit("end")
+    emit("")
+    
+    -- Função tonumber()
+    emit("function tonumber(value)")
+    emit("    return tonumber(value)")
+    emit("end")
+    emit("")
+    
+    -- Função type()
+    emit("function type(value)")
+    emit("    return type(value)")
+    emit("end")
+    emit("")
+    
+    -- Função len() para strings e arrays
+    emit("function len(value)")
+    emit("    if type(value) == 'string' then")
+    emit("        return #value")
+    emit("    elseif type(value) == 'table' then")
+    emit("        return #value")
+    emit("    else")
+    emit("        return 0")
+    emit("    end")
+    emit("end")
+    emit("")
+    
+    -- Função upper() para strings
+    emit("function upper(str)")
+    emit("    return string.upper(str)")
+    emit("end")
+    emit("")
+    
+    -- Função lower() para strings
+    emit("function lower(str)")
+    emit("    return string.lower(str)")
+    emit("end")
+    emit("")
+    
+    -- Função split() para strings
+    emit("function split(str, delimiter)")
+    emit("    local result = {}")
+    emit("    local pattern = '([^' .. delimiter .. ']+)'")
+    emit("    for match in str:gmatch(pattern) do")
+    emit("        table.insert(result, match)")
+    emit("    end")
+    emit("    return result")
+    emit("end")
+    emit("")
+    
+    -- Função array() para criar arrays
+    emit("function array(...)")
+    emit("    return {...}")
+    emit("end")
+    emit("")
+    
+    -- Função dict() para criar dicionários
+    emit("function dict()")
+    emit("    return {}")
+    emit("end")
+    emit("")
+    
+    -- Garbage Collector functions
+    emit("local gc = {}")
+    emit("function gc.init()")
+    emit("    collectgarbage('collect')")
+    emit("end")
+    emit("function gc.collect()")
+    emit("    collectgarbage('collect')")
+    emit("end")
+    emit("function gc.stop()")
+    emit("    collectgarbage('stop')")
+    emit("end")
+    emit("")
+    
+    emit("-- ============================================")
+    emit("-- FIM DO RUNTIME LIBRARY")
+    emit("-- ============================================")
+    emit("")
+    
     local in_function = false
     
     for line in source:gmatch("[^\n]+") do

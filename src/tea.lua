@@ -1,7 +1,8 @@
 -- ============================================
--- tea.lua - Compilador Tea v0.3.0
+-- tea.lua - Compilador Tea v0.4.0
 -- ============================================
 -- Suporte completo: arrays, for, strings avançadas, funções, etc
+-- NOVO: Indentation-based block boundaries (Python-style)
 
 local input_file = arg[1] or "main.tea"
 local output_file = input_file .. "c"
@@ -20,6 +21,9 @@ local OP = {
 
     -- Controle de fluxo
     JUMP = 21, JUMP_IF_FALSE = 22,
+    
+    -- Break/Continue
+    BREAK = 27, CONTINUE = 28,
 
     -- Operadores lógicos
     AND = 24, OR = 25, NOT = 26,
@@ -139,9 +143,28 @@ local function process_includes(source, base_path)
     return source
 end
 
+-- Extrai indentação de uma linha
+local function get_indent(line)
+    local indent = line:match("^(%s*)")
+    return #indent
+end
+
+-- Remove indentação de uma linha
+local function strip_indent(line)
+    return line:match("^%s*(.-)%s*$") or ""
+end
+
 -- Compila expressão (suporta operações inline)
 local function compile_expression(expr)
+    if not expr or expr == "" then
+        error("Expressão vazia")
+    end
+    
     expr = expr:match("^%s*(.-)%s*$")
+    
+    if not expr or expr == "" then
+        error("Expressão vazia após trim")
+    end
 
     -- Concatenação/Operação com + (VERIFICAR PRIMEIRO!)
     if expr:match("%+") then
@@ -364,7 +387,7 @@ local function compile_condition(condition)
 end
 
 -- ============================================
--- PARSER v0.3.0
+-- PARSER v0.4.0 - INDENTATION-BASED
 -- ============================================
 
 local function parse(source)
@@ -374,334 +397,426 @@ local function parse(source)
     
     source = remove_comments(source)
 
+    -- Converte linhas preservando indentação
     local lines = {}
     for line in source:gmatch("[^\n]+") do
-        table.insert(lines, line:match("^%s*(.-)%s*$"))
+        table.insert(lines, line)
     end
 
     local block_stack = {}
     local in_function = false
-    local global_vars = {}  -- Variáveis globais (use, etc)
+    local const_vars = {}   -- Variáveis const (imutáveis)
+    local i = 1
 
-    for _, line in ipairs(lines) do
-        if line == "" then
-            -- Ignora
+    -- Função para processar bloco com indentação
+    local function process_block(start_indent)
+        while i <= #lines do
+            local line = lines[i]
+            local indent = get_indent(line)
+            local stripped = strip_indent(line)
 
-        -- USE (imports) - DEVE VIR ANTES DE fun
-        elseif line:match("^use%s+") and not in_function then
-            local var_name, path = line:match('^use%s+([%w%-_]+)%s*=%s*"([^"]+)"')
-            if var_name and path then
-                -- Marca como variável global
-                global_vars[var_name] = true
-                
-                -- Emite string com o caminho
-                emit(OP.PUSH_STR, #path)
-                for i = 1, #path do
-                    emit(string.byte(path, i))
-                end
-                -- Carrega o módulo
-                emit(OP.REQUIRE)
-                -- Armazena na variável
-                emit(OP.STORE, get_var_index(var_name))
-            else
-                error("Sintaxe inválida: use nome = \"path\"")
+            -- Linha vazia ou comentário: ignora
+            if stripped == "" or stripped:match("^//") then
+                i = i + 1
+                goto continue
             end
 
-        elseif line:match("^fun%s+") then
-            in_function = true
-
-        -- USE (imports)
-        elseif line:match("^use%s+") then
-            local var_name, path = line:match('^use%s+([%w%-_]+)%s*=%s*"([^"]+)"')
-            if var_name and path then
-                -- Emite string com o caminho
-                emit(OP.PUSH_STR, #path)
-                for i = 1, #path do
-                    emit(string.byte(path, i))
-                end
-                -- Carrega o módulo
-                emit(OP.REQUIRE)
-                -- Armazena na variável
-                emit(OP.STORE, get_var_index(var_name))
-            else
-                error("Sintaxe inválida: use nome = \"path\"")
+            -- Se indentação diminuiu, fim do bloco
+            if indent < start_indent then
+                return
             end
 
-        elseif line:match("^return") then
-            if line:match("^return%s+") then
-                local expr = line:match("^return%s+(.+)")
-                compile_expression(expr)
-            end
-            emit(OP.RETURN)
+            -- Se indentação é igual ao nível do bloco, processa
+            if indent == start_indent then
+                i = i + 1
 
-        -- Chamadas de método: cmd.exe("...")
-        elseif line:match("^[%w_%-]+%.[%w_%-]+%(") then
-            local module, method, args = line:match("^([%w_%-]+)%.([%w_%-]+)%((.*)%)$")
-            if module and method then
-                -- Carrega o módulo
-                emit(OP.LOAD, get_var_index(module))
-                
-                -- Nome do método
-                emit(OP.PUSH_STR, #method)
-                for i = 1, #method do
-                    emit(string.byte(method, i))
-                end
-                
-                -- Conta argumentos
-                local arg_count = 0
-                
-                -- Argumentos (se houver)
-                if args and args ~= "" then
-                    -- Remove aspas se for string
-                    if args:match('^".*"$') then
-                        local str = args:match('^"(.*)"$')
-                        emit(OP.PUSH_STR, #str)
-                        for i = 1, #str do
-                            emit(string.byte(str, i))
+                -- USE (imports)
+                if stripped:match("^use%s+") then
+                    local var_name, path = stripped:match('^use%s+([%w%-_]+)%s*=%s*"([^"]+)"')
+                    if not var_name or not path then
+                        var_name, path = stripped:match('^use%s+([%w%-_]+)%s*=%s*([%w%./%-_]+)$')
+                    end
+                    if var_name and path then
+                        emit(OP.PUSH_STR, #path)
+                        for j = 1, #path do
+                            emit(string.byte(path, j))
                         end
-                        arg_count = 1
+                        emit(OP.REQUIRE)
+                        emit(OP.STORE, get_var_index(var_name))
                     else
-                        compile_expression(args)
-                        arg_count = 1
+                        error("Sintaxe inválida: use nome = \"path\" ou use nome = path")
+                    end
+
+                elseif stripped:match("^fun%s+") then
+                    in_function = true
+                    -- Processa o bloco da função
+                    process_block(indent + 4)
+                    -- Após processar o bloco, retorna ao nível anterior
+
+                elseif stripped:match("^return") then
+                    if stripped:match("^return%s+") then
+                        local expr = stripped:match("^return%s+(.+)")
+                        compile_expression(expr)
+                    end
+                    emit(OP.RETURN)
+
+                elseif stripped:match("^close") then
+                    -- Close - encerra o programa inteiro
+                    emit(OP.HALT)
+
+                -- Chamadas de função simples: func()
+                elseif stripped:match("^[%w_%-]+%(%)$") then
+                    local func_name = stripped:match("^([%w_%-]+)%(%)$")
+                    if func_name then
+                        -- Emite chamada de função
+                        emit(OP.CALL, get_var_index(func_name))
+                    end
+
+                -- Chamadas de método: cmd.exe("...")
+                elseif stripped:match("^[%w_%-]+%.[%w_%-]+%(") then
+                    local module, method, args = stripped:match("^([%w_%-]+)%.([%w_%-]+)%((.*)%)$")
+                    if module and method then
+                        emit(OP.LOAD, get_var_index(module))
+                        emit(OP.PUSH_STR, #method)
+                        for j = 1, #method do
+                            emit(string.byte(method, j))
+                        end
+                        
+                        local arg_count = 0
+                        if args and args ~= "" then
+                            if args:match('^".*"$') then
+                                local str = args:match('^"(.*)"$')
+                                emit(OP.PUSH_STR, #str)
+                                for j = 1, #str do
+                                    emit(string.byte(str, j))
+                                end
+                                arg_count = 1
+                            else
+                                compile_expression(args)
+                                arg_count = 1
+                            end
+                        end
+                        
+                        emit(OP.CALL_METHOD, arg_count)
+                    end
+
+                -- Print com múltiplos argumentos
+                elseif stripped:match("^print%(") then
+                    local content = stripped:match("print%((.+)%)")
+
+                    local args = {}
+                    local current = ""
+                    local in_string = false
+                    local in_brackets = 0
+
+                    for j = 1, #content do
+                        local char = content:sub(j, j)
+                        if char == '"' then
+                            in_string = not in_string
+                            current = current .. char
+                        elseif char == "[" or char == "{" then
+                            in_brackets = in_brackets + 1
+                            current = current .. char
+                        elseif char == "]" or char == "}" then
+                            in_brackets = in_brackets - 1
+                            current = current .. char
+                        elseif char == "," and not in_string and in_brackets == 0 then
+                            table.insert(args, current:match("^%s*(.-)%s*$"))
+                            current = ""
+                        else
+                            current = current .. char
+                        end
+                    end
+                    table.insert(args, current:match("^%s*(.-)%s*$"))
+
+                    if #args == 1 then
+                        compile_expression(args[1])
+                        emit(OP.PRINT)
+                    else
+                        compile_expression(args[1])
+                        emit(OP.PUSH_STR, 0)
+                        emit(OP.STR_CONCAT)
+
+                        for j = 2, #args do
+                            compile_expression(args[j])
+                            emit(OP.PUSH_STR, 0)
+                            emit(OP.STR_CONCAT)
+                            emit(OP.STR_CONCAT)
+                        end
+
+                        emit(OP.PRINT)
+                    end
+
+                elseif stripped:match("^val%s+") then
+                    local var_name, rest = stripped:match("^val%s+([%w%-_]+)%s*=%s*(.+)$")
+                    compile_expression(rest)
+                    emit(OP.STORE, get_var_index(var_name))
+
+                elseif stripped:match("^const%s+") then
+                    local var_name, rest = stripped:match("^const%s+([%w%-_]+)%s*=%s*(.+)$")
+                    if var_name then
+                        const_vars[var_name] = true
+                        compile_expression(rest)
+                        emit(OP.STORE, get_var_index(var_name))
+                    else
+                        error("Sintaxe inválida: const nome = valor")
+                    end
+
+                -- Reatribuição de variável
+                elseif stripped:match("^[%w%-_]+%s*=%s*") and not stripped:match("^val%s+") and not stripped:match("^const%s+") then
+                    local var_name, rest = stripped:match("^([%w%-_]+)%s*=%s*(.+)$")
+                    if var_name then
+                        if const_vars[var_name] then
+                            error("Erro: Não é possível reatribuir variável const '" .. var_name .. "'")
+                        end
+                        compile_expression(rest)
+                        emit(OP.STORE, get_var_index(var_name))
+                    end
+
+                -- Garbage Collector
+                elseif stripped:match("^gc%.init%(%)") then
+                    emit(OP.GC_INIT)
+                    
+                elseif stripped:match("^gc%.collect%(%)") then
+                    emit(OP.GC_COLLECT)
+                    
+                elseif stripped:match("^gc%.stop%(%)") then
+                    emit(OP.GC_STOP)
+
+                -- Operações matemáticas antigas
+                elseif stripped:match("^add%s+") then
+                    local var1, var2 = stripped:match("^add%s+([%w%-_]+)%s*,%s*([%w%-_]+)")
+                    emit(OP.LOAD, get_var_index(var1))
+                    emit(OP.LOAD, get_var_index(var2))
+                    emit(OP.ADD)
+
+                elseif stripped:match("^sub%s+") then
+                    local var1, var2 = stripped:match("^sub%s+([%w%-_]+)%s*,%s*([%w%-_]+)")
+                    emit(OP.LOAD, get_var_index(var1))
+                    emit(OP.LOAD, get_var_index(var2))
+                    emit(OP.SUB)
+
+                -- IF STATEMENT
+                elseif stripped:match("^if%s+") then
+                    local condition = stripped:match("^if%s+(.+):")
+                    if not condition then
+                        error("Sintaxe inválida: if condition:")
+                    end
+                    
+                    compile_condition(condition)
+
+                    local else_label = new_label()
+                    local end_label = new_label()
+
+                    emit_jump(OP.JUMP_IF_FALSE, else_label)
+
+                    table.insert(block_stack, {
+                        type = "if",
+                        else_label = else_label,
+                        end_label = end_label,
+                        has_else = false,
+                        indent = indent
+                    })
+
+                    -- Processa bloco if
+                    process_block(indent + 4)
+
+                    -- Verifica elif/else
+                    while i <= #lines do
+                        local next_line = lines[i]
+                        local next_indent = get_indent(next_line)
+                        local next_stripped = strip_indent(next_line)
+
+                        if next_stripped == "" then
+                            i = i + 1
+                            goto continue_elif
+                        end
+
+                        if next_indent < indent then
+                            break
+                        end
+
+                        if next_indent == indent then
+                            if next_stripped:match("^elif%s+") then
+                                i = i + 1
+                                local block = block_stack[#block_stack]
+                                
+                                emit_jump(OP.JUMP, block.end_label)
+                                mark_label(block.else_label)
+
+                                local elif_condition = next_stripped:match("^elif%s+(.+):")
+                                if not elif_condition then
+                                    error("Sintaxe inválida: elif condition:")
+                                end
+                                
+                                compile_condition(elif_condition)
+
+                                block.else_label = new_label()
+                                emit_jump(OP.JUMP_IF_FALSE, block.else_label)
+
+                                process_block(indent + 4)
+                            elseif next_stripped:match("^else:") then
+                                i = i + 1
+                                local block = block_stack[#block_stack]
+                                
+                                emit_jump(OP.JUMP, block.end_label)
+                                mark_label(block.else_label)
+                                block.has_else = true
+
+                                process_block(indent + 4)
+                                -- After processing else block, i should be pointing to the next line
+                                -- If there are no more lines at this indent level, we should break
+                                break
+                            else
+                                break
+                            end
+                        else
+                            break
+                        end
+
+                        ::continue_elif::
+                    end
+
+                    -- Fecha bloco if
+                    local block = table.remove(block_stack)
+                    if not block.has_else then
+                        mark_label(block.else_label)
+                    end
+                    mark_label(block.end_label)
+
+                -- WHILE LOOP
+                elseif stripped:match("^while%s+") then
+                    local condition = stripped:match("^while%s+(.+):")
+                    if not condition then
+                        error("Sintaxe inválida: while condition:")
+                    end
+
+                    local start_label = new_label()
+                    local end_label = new_label()
+
+                    mark_label(start_label)
+                    compile_condition(condition)
+                    emit_jump(OP.JUMP_IF_FALSE, end_label)
+
+                    table.insert(block_stack, {
+                        type = "while",
+                        start_label = start_label,
+                        end_label = end_label,
+                        indent = indent
+                    })
+
+                    process_block(indent + 4)
+
+                    emit_jump(OP.JUMP, start_label)
+                    mark_label(end_label)
+
+                    table.remove(block_stack)
+
+                -- FOR LOOP
+                elseif stripped:match("^for%s+") then
+                    if stripped:match("in%s+range%(") then
+                        local var, max = stripped:match("^for%s+([%w_%-]+)%s+in%s+range%((%d+)%):")
+                        if not var or not max then
+                            error("Sintaxe inválida: for var in range(n):")
+                        end
+
+                        emit(OP.PUSH, 0)
+                        emit(OP.STORE, get_var_index(var))
+
+                        local start_label = new_label()
+                        local end_label = new_label()
+
+                        mark_label(start_label)
+
+                        emit(OP.LOAD, get_var_index(var))
+                        emit(OP.PUSH, tonumber(max))
+                        emit(OP.LT)
+                        emit_jump(OP.JUMP_IF_FALSE, end_label)
+
+                        table.insert(block_stack, {
+                            type = "for",
+                            var = var,
+                            start_label = start_label,
+                            end_label = end_label,
+                            indent = indent
+                        })
+
+                        process_block(indent + 4)
+
+                        emit(OP.LOAD, get_var_index(var))
+                        emit(OP.PUSH, 1)
+                        emit(OP.ADD)
+                        emit(OP.STORE, get_var_index(var))
+
+                        emit_jump(OP.JUMP, start_label)
+                        mark_label(end_label)
+
+                        table.remove(block_stack)
+                    
+                    elseif stripped:match("in%s+[%w_%-]+:") then
+                        local var, array_var = stripped:match("^for%s+([%w_%-]+)%s+in%s+([%w_%-]+):")
+                        if not var or not array_var then
+                            error("Sintaxe inválida: for item in array:")
+                        end
+                        
+                        local index_var = "__index_" .. var
+                        
+                        emit(OP.PUSH, 1)
+                        emit(OP.STORE, get_var_index(index_var))
+                        
+                        local start_label = new_label()
+                        local end_label = new_label()
+                        
+                        mark_label(start_label)
+                        
+                        emit(OP.LOAD, get_var_index(index_var))
+                        emit(OP.LOAD, get_var_index(array_var))
+                        emit(OP.ARRAY_LEN)
+                        emit(OP.LE)
+                        emit_jump(OP.JUMP_IF_FALSE, end_label)
+                        
+                        emit(OP.LOAD, get_var_index(array_var))
+                        emit(OP.LOAD, get_var_index(index_var))
+                        emit(OP.ARRAY_GET)
+                        emit(OP.STORE, get_var_index(var))
+                        
+                        table.insert(block_stack, {
+                            type = "for-in",
+                            var = var,
+                            index_var = index_var,
+                            start_label = start_label,
+                            end_label = end_label,
+                            indent = indent
+                        })
+
+                        process_block(indent + 4)
+
+                        emit(OP.LOAD, get_var_index(index_var))
+                        emit(OP.PUSH, 1)
+                        emit(OP.ADD)
+                        emit(OP.STORE, get_var_index(index_var))
+
+                        emit_jump(OP.JUMP, start_label)
+                        mark_label(end_label)
+
+                        table.remove(block_stack)
+                    else
+                        error("Sintaxe inválida: for statement")
                     end
                 end
-                
-                emit(OP.CALL_METHOD, arg_count)
+
+            elseif indent > start_indent then
+                -- Indentação maior que esperado - pode ser continuação de linha ou erro
+                -- Por enquanto, ignoramos (pode ser tratado como erro em versões futuras)
+                i = i + 1
             end
 
-        -- Print com múltiplos argumentos
-        elseif line:match("^print%(") then
-            local content = line:match("print%((.+)%)")
-
-            -- Separa por vírgulas (fora de strings)
-            local args = {}
-            local current = ""
-            local in_string = false
-            local in_brackets = 0
-
-            for i = 1, #content do
-                local char = content:sub(i, i)
-                if char == '"' then
-                    in_string = not in_string
-                    current = current .. char
-                elseif char == "[" or char == "{" then
-                    in_brackets = in_brackets + 1
-                    current = current .. char
-                elseif char == "]" or char == "}" then
-                    in_brackets = in_brackets - 1
-                    current = current .. char
-                elseif char == "," and not in_string and in_brackets == 0 then
-                    table.insert(args, current:match("^%s*(.-)%s*$"))
-                    current = ""
-                else
-                    current = current .. char
-                end
-            end
-            table.insert(args, current:match("^%s*(.-)%s*$"))
-
-            -- Se tem apenas 1 argumento, imprime direto
-            if #args == 1 then
-                compile_expression(args[1])
-                emit(OP.PRINT)
-            else
-                -- Múltiplos argumentos: converte tudo para string e concatena
-                compile_expression(args[1])
-                emit(OP.PUSH_STR, 0)  -- String vazia para forçar conversão
-                emit(OP.STR_CONCAT)
-
-                for i = 2, #args do
-                    compile_expression(args[i])
-                    emit(OP.PUSH_STR, 0)  -- String vazia para forçar conversão
-                    emit(OP.STR_CONCAT)
-                    emit(OP.STR_CONCAT)
-                end
-
-                emit(OP.PRINT)
-            end
-
-        elseif line:match("^val%s+") then
-            local var_name, rest = line:match("^val%s+([%w%-_]+)%s*=%s*(.+)$")
-            compile_expression(rest)
-            emit(OP.STORE, get_var_index(var_name))
-
-        -- Garbage Collector
-        elseif line:match("^gc%.init%(%)") then
-            emit(OP.GC_INIT)
-            
-        elseif line:match("^gc%.collect%(%)") then
-            emit(OP.GC_COLLECT)
-            
-        elseif line:match("^gc%.stop%(%)") then
-            emit(OP.GC_STOP)
-
-        -- Operações matemáticas antigas (compatibilidade)
-        elseif line:match("^add%s+") then
-            local var1, var2 = line:match("^add%s+([%w%-_]+)%s*,%s*([%w%-_]+)")
-            emit(OP.LOAD, get_var_index(var1))
-            emit(OP.LOAD, get_var_index(var2))
-            emit(OP.ADD)
-
-        elseif line:match("^sub%s+") then
-            local var1, var2 = line:match("^sub%s+([%w%-_]+)%s*,%s*([%w%-_]+)")
-            emit(OP.LOAD, get_var_index(var1))
-            emit(OP.LOAD, get_var_index(var2))
-            emit(OP.SUB)
-
-        -- CONDICIONAIS
-        elseif line:match("^if%s+") then
-            local condition = line:match("^if%s+(.+):")
-            compile_condition(condition)
-
-            local else_label = new_label()
-            local end_label = new_label()
-
-            emit_jump(OP.JUMP_IF_FALSE, else_label)
-
-            table.insert(block_stack, {
-                type = "if",
-                else_label = else_label,
-                end_label = end_label,
-                has_else = false
-            })
-
-        elseif line:match("^elif%s+") then
-            if #block_stack == 0 then error("elif sem if") end
-
-            local condition = line:match("^elif%s+(.+):")
-            local block = block_stack[#block_stack]
-
-            emit_jump(OP.JUMP, block.end_label)
-            mark_label(block.else_label)
-
-            compile_condition(condition)
-
-            block.else_label = new_label()
-            emit_jump(OP.JUMP_IF_FALSE, block.else_label)
-
-        elseif line:match("^else:") then
-            if #block_stack == 0 then error("else sem if") end
-
-            local block = block_stack[#block_stack]
-            emit_jump(OP.JUMP, block.end_label)
-            mark_label(block.else_label)
-            block.has_else = true
-
-        elseif line:match("^endif") then
-            if #block_stack == 0 then error("endif sem if") end
-
-            local block = table.remove(block_stack)
-
-            if not block.has_else then
-                mark_label(block.else_label)
-            end
-
-            mark_label(block.end_label)
-
-        -- LOOPS
-        elseif line:match("^while%s+") then
-            local condition = line:match("^while%s+(.+):")
-
-            local start_label = new_label()
-            local end_label = new_label()
-
-            mark_label(start_label)
-            compile_condition(condition)
-            emit_jump(OP.JUMP_IF_FALSE, end_label)
-
-            table.insert(block_stack, {
-                type = "while",
-                start_label = start_label,
-                end_label = end_label
-            })
-
-        elseif line:match("^for%s+") then
-            -- for i in range(10):
-            if line:match("in%s+range%(") then
-                local var, max = line:match("^for%s+([%w_%-]+)%s+in%s+range%((%d+)%):")
-
-                -- Inicializa variável
-                emit(OP.PUSH, 0)
-                emit(OP.STORE, get_var_index(var))
-
-                local start_label = new_label()
-                local end_label = new_label()
-
-                mark_label(start_label)
-
-                -- Verifica condição
-                emit(OP.LOAD, get_var_index(var))
-                emit(OP.PUSH, tonumber(max))
-                emit(OP.LT)
-                emit_jump(OP.JUMP_IF_FALSE, end_label)
-
-                table.insert(block_stack, {
-                    type = "for",
-                    var = var,
-                    start_label = start_label,
-                    end_label = end_label
-                })
-            
-            -- for item in lista: (NOVO!)
-            elseif line:match("in%s+[%w_%-]+:") then
-                local var, array_var = line:match("^for%s+([%w_%-]+)%s+in%s+([%w_%-]+):")
-                
-                -- Cria variável de índice temporária
-                local index_var = "__index_" .. var
-                
-                -- Inicializa índice em 1 (Tea é 1-indexed)
-                emit(OP.PUSH, 1)
-                emit(OP.STORE, get_var_index(index_var))
-                
-                local start_label = new_label()
-                local end_label = new_label()
-                
-                mark_label(start_label)
-                
-                -- Verifica se índice <= tamanho do array
-                emit(OP.LOAD, get_var_index(index_var))
-                emit(OP.LOAD, get_var_index(array_var))
-                emit(OP.ARRAY_LEN)
-                emit(OP.LE)
-                emit_jump(OP.JUMP_IF_FALSE, end_label)
-                
-                -- Carrega item atual: var = array[index]
-                emit(OP.LOAD, get_var_index(array_var))
-                emit(OP.LOAD, get_var_index(index_var))
-                emit(OP.ARRAY_GET)
-                emit(OP.STORE, get_var_index(var))
-                
-                table.insert(block_stack, {
-                    type = "for-in",
-                    var = var,
-                    index_var = index_var,
-                    start_label = start_label,
-                    end_label = end_label
-                })
-            end
-
-        elseif line:match("^endwhile") or line:match("^endfor") then
-            if #block_stack == 0 then error("end sem loop") end
-
-            local block = table.remove(block_stack)
-
-            if block.type == "for" then
-                -- Incrementa variável (for range)
-                emit(OP.LOAD, get_var_index(block.var))
-                emit(OP.PUSH, 1)
-                emit(OP.ADD)
-                emit(OP.STORE, get_var_index(block.var))
-            elseif block.type == "for-in" then
-                -- Incrementa índice (for-in)
-                emit(OP.LOAD, get_var_index(block.index_var))
-                emit(OP.PUSH, 1)
-                emit(OP.ADD)
-                emit(OP.STORE, get_var_index(block.index_var))
-            end
-
-            emit_jump(OP.JUMP, block.start_label)
-            mark_label(block.end_label)
+            ::continue::
         end
     end
+
+    -- Processa o programa principal
+    process_block(0)
 
     if #block_stack > 0 then
         error("Bloco não fechado")
@@ -713,6 +828,21 @@ local function parse(source)
 
     emit(OP.HALT)
     patch_jumps()
+end
+
+-- Função auxiliar para validar indentação
+local function validate_indentation(lines)
+    for idx, line in ipairs(lines) do
+        local stripped = strip_indent(line)
+        if stripped ~= "" and not stripped:match("^//") then
+            -- Linha não vazia e não é comentário
+            local indent = get_indent(line)
+            if indent % 4 ~= 0 then
+                -- Aviso: indentação não é múltiplo de 4
+                -- Mas não é erro fatal
+            end
+        end
+    end
 end
 
 -- ============================================
@@ -732,6 +862,10 @@ print("[*] Compilando: " .. input_file)
 local success, err = pcall(parse, source)
 if not success then
     print("!! " .. err)
+    -- Print stack trace for debugging
+    if err:match("Expressão vazia") then
+        print("DEBUG: Empty expression error - check the last statement before this error")
+    end
     os.exit(1)
 end
 
@@ -741,8 +875,6 @@ if not out then
     os.exit(1)
 end
 for _, v in ipairs(bytecode) do
-    -- Se for float, multiplica por 10000 e marca com bit especial
-    -- Mas por enquanto, vamos apenas converter para inteiro
     out:write(string.pack("i4", math.floor(tonumber(v) or 0)))
 end
 out:close()

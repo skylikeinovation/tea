@@ -1,0 +1,36 @@
+// Teste de close (break)
+
+fun main():
+    print("Teste 1: close em if")
+    val x = 10
+    
+    if x > 5:
+        print("x é maior que 5")
+        close
+        print("Isso não deve aparecer")
+    
+    print("Após if")
+    print("")
+    
+    print("Teste 2: close em while")
+    val i = 0
+    while i < 100:
+        print("i =", i)
+        if i == 3:
+            print("Saindo do while!")
+            close
+        val i = i + 1
+    
+    print("Após while")
+    print("")
+    
+    print("Teste 3: close em for")
+    for j in range(10):
+        print("j =", j)
+        if j == 5:
+            print("Saindo do for!")
+            close
+    
+    print("Após for")
+    print("Fim!")
+
