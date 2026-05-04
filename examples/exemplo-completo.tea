@@ -1,0 +1,163 @@
+// ============================================
+// 🍵 Tea Language - Exemplo Completo
+// ============================================
+// Este arquivo mostra todas as funcionalidades do Tea
+
+// --------------------------------------------
+// 1. FUNÇÃO PRINCIPAL
+// --------------------------------------------
+// Todo programa Tea precisa de uma função main()
+fun main():
+    print("🍵 Bem-vindo ao Tea Language!")
+    print("")
+    
+    // --------------------------------------------
+    // 2. VARIÁVEIS
+    // --------------------------------------------
+    // Use 'val' para declarar variáveis
+    val nome = "João"
+    val idade = 25
+    val altura = 175  // em centímetros
+    
+    // Print com múltiplos argumentos
+    print("Nome:", nome)
+    print("Idade:", idade, "anos")
+    
+    print("")
+    
+    // --------------------------------------------
+    // 3. OPERAÇÕES MATEMÁTICAS
+    // --------------------------------------------
+    val x = 10 + 5      // Soma
+    val y = x * 2       // Multiplicação
+    val z = y / 3       // Divisão
+    val w = z - 5       // Subtração
+    
+    print("Resultado:", w)
+    print("")
+    
+    // --------------------------------------------
+    // 4. INPUT DO USUÁRIO
+    // --------------------------------------------
+    // val nome_usuario = input("Digite seu nome: ")
+    // val idade_usuario = int(input("Digite sua idade: "))
+    
+    // --------------------------------------------
+    // 5. CONDICIONAIS
+    // --------------------------------------------
+    val numero = 10
+    
+    if numero > 5:
+        print("Número é maior que 5")
+    elif numero == 5:
+        print("Número é igual a 5")
+    else:
+        print("Número é menor que 5")
+    endif
+    
+    print("")
+    
+    // --------------------------------------------
+    // 6. OPERADORES LÓGICOS
+    // --------------------------------------------
+    val a = 10
+    val b = 5
+    
+    if a > 5 and b < 10:
+        print("Ambas condições são verdadeiras")
+    endif
+    
+    if a == 0 or b == 0:
+        print("Pelo menos um é zero")
+    else:
+        print("Nenhum é zero")
+    endif
+    
+    if not a == 0:
+        print("a não é zero")
+    endif
+    
+    print("")
+    
+    // --------------------------------------------
+    // 7. LOOPS - WHILE
+    // --------------------------------------------
+    print("Contando de 0 a 4:")
+    val i = 0
+    while i < 5:
+        print(i)
+        val i = i + 1
+    endwhile
+    
+    print("")
+    
+    // --------------------------------------------
+    // 8. LOOPS - FOR RANGE
+    // --------------------------------------------
+    print("For range de 0 a 4:")
+    for j in range(5):
+        print(j)
+    endfor
+    
+    print("")
+    
+    // --------------------------------------------
+    // 9. ARRAYS (1-indexed como Lua)
+    // --------------------------------------------
+    val numeros = [1, 2, 3, 4, 5]
+    val frutas = ["maçã", "banana", "laranja"]
+    
+    print("Primeiro número:", numeros[1])  // Arrays começam em 1!
+    print("Segunda fruta:", frutas[2])
+    
+    print("")
+    
+    // --------------------------------------------
+    // 10. FOR-IN (iterar sobre arrays)
+    // --------------------------------------------
+    print("Iterando sobre array:")
+    for item in numeros:
+        print("Item:", item)
+    endfor
+    
+    print("")
+    
+    // --------------------------------------------
+    // 11. DICIONÁRIOS
+    // --------------------------------------------
+    val pessoa = {nome: "Maria", idade: 30, cidade: "SP"}
+    print("Dicionário:", pessoa)
+    
+    print("")
+    
+    // --------------------------------------------
+    // 12. STRINGS
+    // --------------------------------------------
+    val texto = "hello world"
+    val maiusculo = texto.upper()
+    val minusculo = texto.lower()
+    
+    print("Original:", texto)
+    print("Maiúsculo:", maiusculo)
+    print("Minúsculo:", minusculo)
+    
+    // Concatenação de strings
+    val saudacao = "Olá" + " " + "Mundo"
+    print("Concatenado:", saudacao)
+    
+    print("")
+    
+    // --------------------------------------------
+    // 13. GARBAGE COLLECTOR
+    // --------------------------------------------
+    // Inicializa o GC (opcional)
+    gc.init()
+    
+    // Cria muitos objetos...
+    val temp = [1, 2, 3, 4, 5]
+    
+    // Força coleta de lixo
+    gc.collect()
+    
+    print("")
+    print("✅ Programa finalizado!")

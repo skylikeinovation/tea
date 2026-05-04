@@ -40,6 +40,9 @@ local OP = {
     
     -- Garbage Collector
     GC_COLLECT = 90, GC_INIT = 91, GC_STOP = 92,
+    
+    -- Módulos/Imports
+    REQUIRE = 95, LOAD_MODULE = 96, CALL_METHOD = 97,
 }
 
 -- ============================================
@@ -371,13 +374,51 @@ local function parse(source)
 
     local block_stack = {}
     local in_function = false
+    local global_vars = {}  -- Variáveis globais (use, etc)
 
     for _, line in ipairs(lines) do
         if line == "" then
             -- Ignora
 
+        -- USE (imports) - DEVE VIR ANTES DE fun
+        elseif line:match("^use%s+") and not in_function then
+            local var_name, path = line:match('^use%s+([%w%-_]+)%s*=%s*"([^"]+)"')
+            if var_name and path then
+                -- Marca como variável global
+                global_vars[var_name] = true
+                
+                -- Emite string com o caminho
+                emit(OP.PUSH_STR, #path)
+                for i = 1, #path do
+                    emit(string.byte(path, i))
+                end
+                -- Carrega o módulo
+                emit(OP.REQUIRE)
+                -- Armazena na variável
+                emit(OP.STORE, get_var_index(var_name))
+            else
+                error("Sintaxe inválida: use nome = \"path\"")
+            end
+
         elseif line:match("^fun%s+") then
             in_function = true
+
+        -- USE (imports)
+        elseif line:match("^use%s+") then
+            local var_name, path = line:match('^use%s+([%w%-_]+)%s*=%s*"([^"]+)"')
+            if var_name and path then
+                -- Emite string com o caminho
+                emit(OP.PUSH_STR, #path)
+                for i = 1, #path do
+                    emit(string.byte(path, i))
+                end
+                -- Carrega o módulo
+                emit(OP.REQUIRE)
+                -- Armazena na variável
+                emit(OP.STORE, get_var_index(var_name))
+            else
+                error("Sintaxe inválida: use nome = \"path\"")
+            end
 
         elseif line:match("^return") then
             if line:match("^return%s+") then
@@ -385,6 +426,41 @@ local function parse(source)
                 compile_expression(expr)
             end
             emit(OP.RETURN)
+
+        -- Chamadas de método: cmd.exe("...")
+        elseif line:match("^[%w_%-]+%.[%w_%-]+%(") then
+            local module, method, args = line:match("^([%w_%-]+)%.([%w_%-]+)%((.*)%)$")
+            if module and method then
+                -- Carrega o módulo
+                emit(OP.LOAD, get_var_index(module))
+                
+                -- Nome do método
+                emit(OP.PUSH_STR, #method)
+                for i = 1, #method do
+                    emit(string.byte(method, i))
+                end
+                
+                -- Conta argumentos
+                local arg_count = 0
+                
+                -- Argumentos (se houver)
+                if args and args ~= "" then
+                    -- Remove aspas se for string
+                    if args:match('^".*"$') then
+                        local str = args:match('^"(.*)"$')
+                        emit(OP.PUSH_STR, #str)
+                        for i = 1, #str do
+                            emit(string.byte(str, i))
+                        end
+                        arg_count = 1
+                    else
+                        compile_expression(args)
+                        arg_count = 1
+                    end
+                end
+                
+                emit(OP.CALL_METHOD, arg_count)
+            end
 
         -- Print com múltiplos argumentos
         elseif line:match("^print%(") then
@@ -658,7 +734,9 @@ if not out then
     os.exit(1)
 end
 for _, v in ipairs(bytecode) do
-    out:write(string.pack("i4", v))
+    -- Se for float, multiplica por 10000 e marca com bit especial
+    -- Mas por enquanto, vamos apenas converter para inteiro
+    out:write(string.pack("i4", math.floor(tonumber(v) or 0)))
 end
 out:close()
 

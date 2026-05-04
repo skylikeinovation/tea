@@ -68,6 +68,11 @@ local OP = {
     GC_COLLECT = 90,        -- Força coleta de lixo
     GC_INIT = 91,           -- Inicializa GC
     GC_STOP = 92,           -- Para GC
+    
+    -- Módulos/Imports (NOVOS)
+    REQUIRE = 95,           -- Carrega módulo Lua
+    LOAD_MODULE = 96,       -- Carrega módulo Tea
+    CALL_METHOD = 97,       -- Chama método de módulo
 }
 
 -- ============================================
@@ -535,6 +540,73 @@ local function execute(bytecode)
         elseif opcode == OP.GC_STOP then
             -- Para o GC
             collectgarbage("stop")
+            
+        -- ========================================
+        -- MÓDULOS/IMPORTS (NOVOS)
+        -- ========================================
+        
+        elseif opcode == OP.REQUIRE then
+            -- Pega o caminho do módulo da pilha
+            local path = pop()
+            
+            -- Tenta carregar o módulo Lua
+            local success, module = pcall(function()
+                -- Adiciona extensão .lua se não tiver
+                if not path:match("%.lua$") then
+                    path = path .. ".lua"
+                end
+                
+                -- Carrega o módulo
+                local chunk, err = loadfile(path)
+                if not chunk then
+                    error("Erro ao carregar módulo: " .. err)
+                end
+                
+                -- Executa e retorna o módulo
+                return chunk()
+            end)
+            
+            if not success then
+                error("!! Erro ao importar módulo: " .. tostring(module))
+            end
+            
+            -- Empilha o módulo (tabela Lua)
+            push(module)
+            
+        elseif opcode == OP.CALL_METHOD then
+            -- Número de argumentos
+            local arg_count = bytecode[ip]
+            ip = ip + 1
+            
+            -- Pega argumentos da pilha
+            local args = {}
+            for i = 1, arg_count do
+                table.insert(args, 1, pop())  -- Inverte ordem
+            end
+            
+            -- Pega nome do método
+            local method_name = pop()
+            
+            -- Pega o módulo (tabela)
+            local module = pop()
+            
+            if type(module) ~= "table" then
+                error("!! Erro: Tentando chamar método de não-módulo")
+            end
+            
+            -- Pega a função do módulo
+            local func = module[method_name]
+            if type(func) ~= "function" then
+                error("!! Erro: Método não encontrado: " .. tostring(method_name))
+            end
+            
+            -- Chama a função Lua
+            local result = func(table.unpack(args))
+            
+            -- Se retornar algo, empilha
+            if result ~= nil then
+                push(result)
+            end
             
         elseif opcode == OP.HALT then
             break
