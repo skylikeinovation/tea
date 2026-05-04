@@ -1,0 +1,9 @@
+// Teste de warning kebab-case
+
+fun main():
+    val my-variable = 10   // ✅ OK (sem warning)
+    print("kebab:", my-variable)
+    
+    val my_variable = 20   // ⚠️ Warning
+    print("snake:", my_variable)
+
