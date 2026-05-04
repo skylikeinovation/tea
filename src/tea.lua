@@ -448,6 +448,13 @@ local function parse(source)
                     end
 
                 elseif stripped:match("^fun%s+") then
+                    local func_name = stripped:match("^fun%s+([%w%-_]+)")
+                    
+                    -- Valida: kebab-case OU snake_case (não camelCase)
+                    if func_name and func_name:match("[A-Z]") then
+                        error("Erro: Use kebab-case ou snake_case! '" .. func_name .. "' contém maiúsculas.")
+                    end
+                    
                     in_function = true
                     -- Processa o bloco da função
                     process_block(indent + 4)
@@ -468,6 +475,11 @@ local function parse(source)
                 elseif stripped:match("^[%w_%-]+%(%)$") then
                     local func_name = stripped:match("^([%w_%-]+)%(%)$")
                     if func_name then
+                        -- Valida: kebab-case OU snake_case (não camelCase)
+                        if func_name:match("[A-Z]") then
+                            error("Erro: Use kebab-case ou snake_case! '" .. func_name .. "' contém maiúsculas.")
+                        end
+                        
                         -- Emite chamada de função
                         emit(OP.CALL, get_var_index(func_name))
                     end
@@ -549,12 +561,31 @@ local function parse(source)
 
                 elseif stripped:match("^val%s+") then
                     local var_name, rest = stripped:match("^val%s+([%w%-_]+)%s*=%s*(.+)$")
+                    
+                    -- Valida: kebab-case OU snake_case (não camelCase, não palavras juntas)
+                    if var_name then
+                        if var_name:match("[A-Z]") then
+                            error("Erro: Use kebab-case ou snake_case! '" .. var_name .. "' contém maiúsculas.")
+                        elseif var_name:match("_") then
+                            -- Warning: snake_case detectado
+                            print("[!] Aviso: Se quiser uma experiência melhor use kebab-case! (em vez de '" .. var_name .. "')")
+                        end
+                    end
+                    
                     compile_expression(rest)
                     emit(OP.STORE, get_var_index(var_name))
 
                 elseif stripped:match("^const%s+") then
                     local var_name, rest = stripped:match("^const%s+([%w%-_]+)%s*=%s*(.+)$")
                     if var_name then
+                        -- Valida: kebab-case OU snake_case (não camelCase)
+                        if var_name:match("[A-Z]") then
+                            error("Erro: Use kebab-case ou snake_case! '" .. var_name .. "' contém maiúsculas.")
+                        elseif var_name:match("_") then
+                            -- Warning: snake_case detectado
+                            print("[!] Aviso: Se quiser uma experiência melhor use kebab-case! (em vez de '" .. var_name .. "')")
+                        end
+                        
                         const_vars[var_name] = true
                         compile_expression(rest)
                         emit(OP.STORE, get_var_index(var_name))
