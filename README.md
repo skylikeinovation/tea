@@ -1,4 +1,4 @@
-# 🍵 Tea Language v0.1.0-dev
+# 🍵 Tea Language v0.8.0
 
 Uma linguagem de programação moderna e minimalista com sintaxe inspirada em Python, compilada para bytecode e executada em uma VM stack-based escrita em Lua.
 
